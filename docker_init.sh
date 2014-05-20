@@ -38,8 +38,7 @@ stop on runlevel [!2345]
 respawn
 
 script
-  DOCKER=/usr/local/bin/docker
-  "$DOCKER" -d &
+  /usr/local/bin/docker -d
 end script
 EOF
 
