@@ -23,7 +23,10 @@ echo "#!/bin/sh
 /usr/local/bin/docker -d &
 " > /nicescale/docker.init
 chmod 755 /nicescale/docker.init
-ln -s /nicescale/docker.init /etc/rc{2,3,4,5}.d/S95docker
+ln -s /nicescale/docker.init /etc/rc2.d/S95docker
+ln -s /nicescale/docker.init /etc/rc3.d/S95docker
+ln -s /nicescale/docker.init /etc/rc4.d/S95docker
+ln -s /nicescale/docker.init /etc/rc5.d/S95docker
 
 # put docker daemon to init and upstart/systemd
 cat << EOF > /etc/init/docker.conf
