@@ -8,7 +8,9 @@ apt-get -y install aufs-tools git
 wget https://get.docker.io/builds/Linux/x86_64/docker-latest.tgz
 tar zxf docker-latest.tgz -C /
 git clone https://github.com/NiceScale/nicedocker.git
-cp nicedocker/{cgmount.sh,nicedocker,nicedocker.ini} /nicescale/
+cp nicedocker/cgmount.sh /nicescale/
+cp nicedocker/nicedocker /nicescale/
+cp nicedocker/nicedocker.ini /nicescale/
 chmod 755 /nicescale/cgmount.sh
 chmod 755 /nicescale/nicedocker
 ln -s /nicescale/nicedocker /usr/local/bin/nicedocker
