@@ -456,6 +456,7 @@ drename() {
     sed -i "s/SERVICE_NAME.*/SERVICE_NAME=$new/" $serviceinfo
     is_running $new && dexec xxx $new 'kill `ps ax|grep bas[h]|grep rcfile|cut -c1-5`'
   fi
+  echo service name $old changed to $new ok.
 }
 
 dexec() {
