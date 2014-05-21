@@ -190,8 +190,13 @@ parse() {
 service_init() {
   servicetype=$1
   servicevsn=$2
-  [ -z $repohost ] && return
-  rsync -a rsync://$repohost/service/$servicetype-$servicevsn/* ./ 2>/dev/null
+  [ -z "$repohost" ] && return
+  if [ -d conf -a ! -z `/bin/ls conf` ]; then
+    rsync_opt="-a --exclude=conf/"
+  else
+    rsync_opt="-a"
+  fi
+  rsync $rsync_opt rsync://$repohost/service/$servicetype-$servicevsn/* ./ 2>/dev/null
   if [ $? -eq 23 -o $? -eq 5 ]; then
     echo service $servicetype:$servicevsn dont have service init files in rsync repo
   fi
@@ -212,7 +217,8 @@ drun() {
 
   ini_parse $SERVICE_CONF $servicetype
 
-  if [ -d $SERVICE_DIR/$serviceid -a -L $SERVICE_DIR/$servicename ]; then
+  #if [ -d $SERVICE_DIR/$serviceid -a -L $SERVICE_DIR/$servicename ]; then
+  if [ -f $serviceinfo ]; then
     sname=`get_name_by_id $serviceid`
     [ "$sname" != "$servicename" ] && die "both serviceid $serviceid and servicename $servicename exist, but not match!"
     echo "serviceid $serviceid exists! checking status ..."
@@ -225,10 +231,10 @@ drun() {
     echo "service $serviceid status: NO, trying to remove this service and deploy it again ..."
     dkill $serviceid
     drm -y $serviceid
-  elif [ -d $SERVICE_DIR/$serviceid -a ! -L $SERVICE_DIR/$servicename ]; then
-    die "serviceid $serviceid existed, but no servicename $servicename"
-  elif [ ! -d $SERVICE_DIR/$serviceid -a -L $SERVICE_DIR/$servicename ]; then
-    die "servicename $servicename existed, but no serviceid $serviceid"
+  #elif [ -d $SERVICE_DIR/$serviceid -a ! -L $SERVICE_DIR/$servicename ]; then
+  #  die "serviceid $serviceid existed, but no servicename $servicename"
+  #elif [ ! -d $SERVICE_DIR/$serviceid -a -L $SERVICE_DIR/$servicename ]; then
+  #  die "servicename $servicename existed, but no serviceid $serviceid"
   fi
   mkdir -p $SERVICE_DIR/$serviceid
   cd $SERVICE_DIR/$serviceid
@@ -247,12 +253,6 @@ drun() {
   [ ! -z $conf ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf:ro "$volume
   [ ! -z $log ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
   [ ! -z $data ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
-
-  #port_parameter=
-  #IFS=',' read -ra CPORT <<< "$port"
-  #for p in "${CPORT[@]}"; do
-  #  port_parameter="-p $p:$p "$port_parameter
-  #done
 
   prj_id=abcdefg
   if docker images|grep -q $serviceid || docker pull $repohost:5000/$prj_id/$serviceid:latest; then
