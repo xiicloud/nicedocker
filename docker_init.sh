@@ -16,7 +16,7 @@ distribution=`head -1 /etc/issue.net |cut -f1 -d' '`
 version=`head -1 /etc/issue.net |cut -f3 -d' '`
 if [ "$distribution" = "Ubuntu" ]; then
   apt-get update
-  case $version:
+  case $version in
     "Trusty")
       apt-get -y install docker.io
       ln -sf /usr/bin/docker.io /usr/local/bin/docker
@@ -66,6 +66,7 @@ for s in $SERVICE_TYPES; do
   docker pull $REPOHOST:5000/$s
 done
 
-echo rebooting after 10 seconds ....
-sleep 10
-reboot
+echo "docker and images ready now."
+#echo rebooting after 10 seconds ....
+#sleep 10
+#reboot
