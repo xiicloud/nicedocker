@@ -21,6 +21,7 @@ if [ "$distribution" = "Ubuntu" ]; then
     "Trusty")
       apt-get -y install docker.io
       ln -sf /usr/bin/docker.io /usr/local/bin/docker
+      service docker.io start
       ;;
     "Precise")
       apt-get -y install linux-image-generic-lts-raring linux-headers-generic-lts-raring
@@ -31,13 +32,15 @@ if [ "$distribution" = "Ubuntu" ]; then
       echo deb https://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
       apt-get update
       apt-get -y install lxc-docker
+      service lxc-docker start
       ;;
     "Raring"|"Saucy")
-      apt-get -y install linux-image-extra-`uname -r`
+      #apt-get -y install linux-image-extra-`uname -r`
       apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 36A1D7869245C8950F966E92D8576A8BA88D21E9
       echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
       apt-get update
       apt-get -y install lxc-docker
+      service lxc-docker start
       ;;
     *)
       echo unsupported distribution $version
@@ -69,6 +72,8 @@ done
 
 rm -fr $WDIR
 echo "docker and images ready now."
+[ $distribution = "Ubuntu" -a $version = "Precise" ] &&
+echo "Ubuntu 12.04 should reboot for new kernel."
 #echo rebooting after 10 seconds ....
 #sleep 10
 #reboot
