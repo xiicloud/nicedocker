@@ -1,8 +1,9 @@
 #!/bin/sh
 
+echo "docker init beginning ..."
 WDIR=/tmp/docker_xywfa
 [ -d /tmp/docker_xywfa ] || mkdir /tmp/docker_xywfa
-[ -d /nicescalen ] || mkdir /nicescale
+[ -d /nicescale ] || mkdir /nicescale
 NICESCALEDIR=/opt/nicescale/support
 [ -d $NICESCALEDIR ] || mkdir -p $NICESCALEDIR
 [ -d $NICESCALEDIR/bin ] || mkdir -p $NICESCALEDIR/bin
@@ -54,18 +55,19 @@ else
   echo unsupported linux distribution
 fi
 git clone https://github.com/NiceScale/nicedocker.git
-cp nicedocker/cgmount.sh $NICESCALEDIR/bin/
-cp nicedocker/nicedocker $NICESCALEDIR/bin/
-cp nicedocker/nicedocker.ini $NICESCALEDIR/etc/
+/bin/cp nicedocker/cgmount.sh $NICESCALEDIR/bin/
+/bin/cp nicedocker/nicedocker $NICESCALEDIR/bin/
+/bin/cp nicedocker/nicedocker.ini $NICESCALEDIR/etc/
 chmod 755 $NICESCALEDIR/cgmount.sh
 chmod 755 $NICESCALEDIR/nicedocker
-ln -s $NICESCALEDIR/nicedocker /usr/local/bin/nicedocker
-ln -s $NICESCALEDIR/nicedocker /usr/local/bin/dockernice
+ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/nicedocker
+ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/dockernice
 
 for s in $SERVICE_TYPES; do
   docker pull $REPOHOST:5000/$s
 done
 
+rm -fr $WDIR
 echo "docker and images ready now."
 #echo rebooting after 10 seconds ....
 #sleep 10
