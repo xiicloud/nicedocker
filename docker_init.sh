@@ -47,7 +47,7 @@ if [ "$distribution" = "Ubuntu" ]; then
   esac
   apt-get -y install aufs-tools git
 elif [ "$distribution" = "CentOS" ]; then
-  [ "$version" < "6.5" ] && echo not supported version && exit 1
+  [ `echo $version'>'6.4|bc -l` -eq 0 ] && echo not supported version && exit 1
   [ ! -f /etc/yum.repos.d/epel.repo ] &&
   wget http://epel.mirror.net.in/epel/6/i386/epel-release-6-8.noarch.rpm &&
   rpm -ivh epel-release-6-8.noarch.rpm
