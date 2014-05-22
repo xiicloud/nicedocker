@@ -196,9 +196,9 @@ service_init() {
   [ -d conf ] && hasconfig=`/bin/ls conf`
 
   if [ ! -z "$hasconfig" ]; then
-    rsync_opt="-a --exclude=conf/"
+    rsync_opt="-az --exclude=conf/"
   else
-    rsync_opt="-a"
+    rsync_opt="-az"
   fi
   rsync $rsync_opt rsync://$repohost/service/$servicetype-$servicevsn/* ./ 2>/dev/null
   if [ $? -eq 23 -o $? -eq 5 ]; then
