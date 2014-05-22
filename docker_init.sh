@@ -5,9 +5,11 @@ WDIR=/tmp/docker_xywfa
 [ -d /tmp/docker_xywfa ] || mkdir /tmp/docker_xywfa
 [ -d /nicescale ] || mkdir /nicescale
 NICESCALEDIR=/opt/nicescale/support
+RSYNCDIR=/opt/nicescale/service_init
 [ -d $NICESCALEDIR ] || mkdir -p $NICESCALEDIR
 [ -d $NICESCALEDIR/bin ] || mkdir -p $NICESCALEDIR/bin
 [ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
+[ -d $RSYNCDIR ] || midir -p $RSYNCDIR
 
 SERVICE_TYPES="mysql redis redis_cache redis_store memcached apache_php haproxy tomcat"
 REPOHOST=repo.nicescale.com
@@ -61,15 +63,23 @@ git clone https://github.com/NiceScale/nicedocker.git
 /bin/cp nicedocker/cgmount.sh $NICESCALEDIR/bin/
 /bin/cp nicedocker/nicedocker $NICESCALEDIR/bin/
 /bin/cp nicedocker/nicedocker.ini $NICESCALEDIR/etc/
-chmod 755 $NICESCALEDIR/cgmount.sh
-chmod 755 $NICESCALEDIR/nicedocker
+chmod 755 $NICESCALEDIR/bin/cgmount.sh
+chmod 755 $NICESCALEDIR/bin/nicedocker
 ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/nicedocker
 ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/dockernice
 
 for s in $SERVICE_TYPES; do
   docker pull $REPOHOST:5000/$s
+  cd $WDIR
+  wget https://github.com/NiceScale/service_init/archive/latest.tar.gz &&
+  tar zxf latest.tar.gz &&
+  cd service_init-latest &&
+  tar zxf service_init.tgz &&
+  mv service_init/* $RSYNCDIR/
+  #rsync -avz rsync://$repohost::service/* ./
 done
 
+cd /
 rm -fr $WDIR
 echo "docker and images ready now."
 [ $distribution = "Ubuntu" -a $version = "Precise" ] &&
