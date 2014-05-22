@@ -1,10 +1,13 @@
 #!/bin/sh
 
 WDIR=/tmp/docker_xywfa
-mkdir /tmp/docker_xywfa
-mkdir /nicescale
+[ -d /tmp/docker_xywfa ] || mkdir /tmp/docker_xywfa
+[ -d /nicescalen ] || mkdir /nicescale
 NICESCALEDIR=/opt/nicescale/support
-[ -d $NICESCALEDIR ] && echo $NICESCALEDIR not exist,making it && mkdir -p $NICESCALEDIR/{bin,etc}
+[ -d $NICESCALEDIR ] || mkdir -p $NICESCALEDIR
+[ -d $NICESCALEDIR/bin ] || mkdir -p $NICESCALEDIR/bin
+[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
+
 SERVICE_TYPES="mysql redis redis_cache redis_store memcached apache_php haproxy tomcat"
 REPOHOST=repo.nicescale.com
 
@@ -60,7 +63,7 @@ ln -s $NICESCALEDIR/nicedocker /usr/local/bin/nicedocker
 ln -s $NICESCALEDIR/nicedocker /usr/local/bin/dockernice
 
 for s in $SERVICE_TYPES; do
-  docker pull $s
+  docker pull $REPOHOST:5000/$s
 done
 
 echo rebooting after 10 seconds ....
