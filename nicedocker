@@ -191,7 +191,11 @@ service_init() {
   servicetype=$1
   servicevsn=$2
   [ -z "$repohost" ] && return
-  if [ -d conf -a ! -z `/bin/ls conf` ]; then
+
+  hasconfig=
+  [ -d conf ] && hasconfig=`/bin/ls conf`
+
+  if [ ! -z "$hasconfig" ]; then
     rsync_opt="-a --exclude=conf/"
   else
     rsync_opt="-a"
