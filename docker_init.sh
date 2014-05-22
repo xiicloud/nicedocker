@@ -41,7 +41,10 @@ if [ "$distribution" = "Ubuntu" ]; then
   apt-get -y install aufs-tools git
 elif [ "$distribution" = "CentOS" ]; then
   [ "$version" < "6.5" ] && echo not supported version && exit 1
-  yum -y install aufs-tools git docker-io
+  [ ! -f /etc/yum.repos.d/epel.repo ] &&
+  wget http://epel.mirror.net.in/epel/6/i386/epel-release-6-8.noarch.rpm &&
+  rpm -ivh epel-release-6-8.noarch.rpm
+  yum -y install git docker-io
   service docker start
   chkconfig docker on
 else
