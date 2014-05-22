@@ -16,16 +16,16 @@ REPOHOST=repo.nicescale.com
 
 cd $WDIR
 distribution=`head -1 /etc/issue.net |cut -f1 -d' '`
-version=`head -1 /etc/issue.net |cut -f3 -d' '`
 if [ "$distribution" = "Ubuntu" ]; then
+  version=`head -1 /etc/issue.net |cut -f2 -d' '`
   apt-get update
   case $version in
-    "Trusty")
+    "14.04")
       apt-get -y install docker.io
       ln -sf /usr/bin/docker.io /usr/local/bin/docker
       service docker.io start
       ;;
-    "Precise")
+    "12.04")
       apt-get -y install linux-image-generic-lts-raring linux-headers-generic-lts-raring
       [ -e /usr/lib/apt/methods/https ] || {
           apt-get install apt-transport-https
@@ -36,8 +36,7 @@ if [ "$distribution" = "Ubuntu" ]; then
       apt-get -y install lxc-docker
       service lxc-docker start
       ;;
-    "Raring"|"Saucy")
-      #apt-get -y install linux-image-extra-`uname -r`
+    "13.04"|"13.10")
       apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 36A1D7869245C8950F966E92D8576A8BA88D21E9
       echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
       apt-get update
@@ -49,6 +48,7 @@ if [ "$distribution" = "Ubuntu" ]; then
   esac
   apt-get -y install aufs-tools git
 elif [ "$distribution" = "CentOS" ]; then
+  version=`head -1 /etc/issue.net |cut -f3 -d' '`
   [ `echo $version'>'6.4|bc -l` -eq 0 ] && echo not supported version && exit 1
   [ ! -f /etc/yum.repos.d/epel.repo ] &&
   wget http://epel.mirror.net.in/epel/6/i386/epel-release-6-8.noarch.rpm &&
@@ -70,14 +70,14 @@ ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/dockernice
 
 for s in $SERVICE_TYPES; do
   docker pull $REPOHOST:5000/$s
-  cd $WDIR
-  wget https://github.com/NiceScale/service_init/archive/latest.tar.gz &&
-  tar zxf latest.tar.gz &&
-  cd service_init-latest &&
-  tar zxf service_init.tgz &&
-  mv service_init/* $RSYNCDIR/
-  #rsync -avz rsync://$repohost::service/* ./
 done
+
+cd $WDIR
+wget https://github.com/NiceScale/service_init/archive/latest.tar.gz &&
+tar zxf latest.tar.gz &&
+cd service_init-latest &&
+tar zxf service_init.tgz &&
+/bin/mv service_init/* $RSYNCDIR/
 
 cd /
 rm -fr $WDIR
