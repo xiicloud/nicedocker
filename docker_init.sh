@@ -9,7 +9,7 @@ RSYNCDIR=/opt/nicescale/service_init
 [ -d $NICESCALEDIR ] || mkdir -p $NICESCALEDIR
 [ -d $NICESCALEDIR/bin ] || mkdir -p $NICESCALEDIR/bin
 [ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
-[ -d $RSYNCDIR ] || midir -p $RSYNCDIR
+[ -d $RSYNCDIR ] || mkdir -p $RSYNCDIR
 
 SERVICE_TYPES="mysql redis redis_cache redis_store memcached apache_php haproxy tomcat"
 REPOHOST=repo.nicescale.com
