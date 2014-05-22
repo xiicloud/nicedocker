@@ -3,6 +3,11 @@
 WDIR=/tmp/docker_xywfa
 mkdir /tmp/docker_xywfa
 mkdir /nicescale
+NICESCALEDIR=/opt/nicescale/support
+[ -d $NICESCALEDIR ] && echo $NICESCALEDIR not exist,making it && mkdir -p $NICESCALEDIR/{bin,etc}
+SERVICE_TYPES="mysql redis redis_cache redis_store memcached apache_php haproxy tomcat"
+REPOHOST=repo.nicescale.com
+
 cd $WDIR
 distribution=`head -1 /etc/issue.net |cut -f1 -d' '`
 version=`head -1 /etc/issue.net |cut -f3 -d' '`
@@ -43,13 +48,17 @@ else
   echo unsupported linux distribution
 fi
 git clone https://github.com/NiceScale/nicedocker.git
-cp nicedocker/cgmount.sh /nicescale/
-cp nicedocker/nicedocker /nicescale/
-cp nicedocker/nicedocker.ini /nicescale/
-chmod 755 /nicescale/cgmount.sh
-chmod 755 /nicescale/nicedocker
-ln -s /nicescale/nicedocker /usr/local/bin/nicedocker
-ln -s /nicescale/nicedocker /usr/local/bin/dockernice
+cp nicedocker/cgmount.sh $NICESCALEDIR/bin/
+cp nicedocker/nicedocker $NICESCALEDIR/bin/
+cp nicedocker/nicedocker.ini $NICESCALEDIR/etc/
+chmod 755 $NICESCALEDIR/cgmount.sh
+chmod 755 $NICESCALEDIR/nicedocker
+ln -s $NICESCALEDIR/nicedocker /usr/local/bin/nicedocker
+ln -s $NICESCALEDIR/nicedocker /usr/local/bin/dockernice
+
+for s in $SERVICE_TYPES; do
+  docker pull $s
+done
 
 echo rebooting after 10 seconds ....
 sleep 10
