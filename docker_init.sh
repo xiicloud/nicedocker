@@ -19,28 +19,25 @@ distribution=`head -1 /etc/issue.net |cut -f1 -d' '`
 if [ "$distribution" = "Ubuntu" ]; then
   version=`head -1 /etc/issue.net |cut -f2 -d' '`
   version=`echo $version|cut -f1 -d'.'`
+  apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 36A1D7869245C8950F966E92D8576A8BA88D21E9
+  echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
   apt-get update
   case $version in
     "14")
-      apt-get -y install docker.io
-      ln -sf /usr/bin/docker.io /usr/local/bin/docker
-      service docker.io start
+      apt-get -y install lxc-docker
+      #apt-get -y install docker.io
+      #ln -sf /usr/bin/docker.io /usr/local/bin/docker
+      service lxc-docker start
       ;;
     "12")
       apt-get -y install linux-image-generic-lts-raring linux-headers-generic-lts-raring
       [ -e /usr/lib/apt/methods/https ] || {
           apt-get install apt-transport-https
         }
-      apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 36A1D7869245C8950F966E92D8576A8BA88D21E9
-      echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
-      apt-get update
       apt-get -y install lxc-docker
       service lxc-docker start
       ;;
     "13")
-      apt-key adv --keyserver hkp://keyserver.ubuntu.com:80 --recv-keys 36A1D7869245C8950F966E92D8576A8BA88D21E9
-      echo deb http://get.docker.io/ubuntu docker main > /etc/apt/sources.list.d/docker.list
-      apt-get update
       apt-get -y install lxc-docker
       service lxc-docker start
       ;;
