@@ -2,6 +2,7 @@
 
 SERVICE_DIR=/nicescale
 [ -d $SERVICE_DIR ] || mkdir $SERVICE_DIR
+[ -d /opt/nicescale/support/etc ] || mkdir -p /opt/nicescale/support/etc
 SERVICE_CONF=/opt/nicescale/support/etc/nicedocker.ini
 [ -f $SERVICE_CONF ] ||
 cat <<EOF > $SERVICE_CONF
@@ -16,7 +17,7 @@ data=${dir:-/var/lib/redis}
 [mysql]
 port=${port:-3306}
 conf=/etc/mysql
-log=${log_error:-/varlog/mysql}
+log=${log_error:-/var/log/mysql}
 data=${datadir:-/var/lib/mysql}
 
 [apache-php]
