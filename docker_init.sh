@@ -71,7 +71,7 @@ for s in $SERVICE_TYPES; do
 done
 
 cd $WDIR
-wget https://github.com/NiceScale/service_init/archive/latest.tar.gz &&
+wget https://github.com/NiceScale/service_init/archive/latest.tar.gz -O latest.tar.gz &&
 tar zxf latest.tar.gz &&
 cd service_init-latest &&
 tar zxf service_init.tgz &&
