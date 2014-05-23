@@ -6,7 +6,7 @@ SERVICE_DIR=/nicescale
 SERVICE_CONF=/opt/nicescale/support/etc/nicedocker.ini
 [ -f $SERVICE_CONF ] ||
 cat <<EOF > $SERVICE_CONF
-repohost=repo.nicescale.com
+repohost=repo.nicedocker.com
 
 [redis]
 port=${port:-6379}
@@ -61,7 +61,7 @@ The dockernice commands supported now are:
    rename oldname newname // change service name, service id no change
    rm [-y] servicename|serviceid // delete stopped docker container
    commit servicename|serviceid // reimage by running container and push to repohost
-   search searchpattern // search images supported by NiceScale
+   search [searchpattern] // search images supported by NiceScale, if no pattern, list all
    pull image // pull image from NiceScale
    push image // push image to your own project repo
    images // list cached images and local images
