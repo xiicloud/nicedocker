@@ -79,7 +79,7 @@ tar zxf service_init.tgz &&
 
 cd /
 rm -fr $WDIR
-[ $distribution = "Ubuntu" -a $version = "Precise" ] &&
+[ $distribution = "Ubuntu" -a $version = "12" ] &&
 echo "Ubuntu 12.04 should reboot for new kernel."
 echo "docker and images ready now."
 #echo rebooting after 10 seconds ....
