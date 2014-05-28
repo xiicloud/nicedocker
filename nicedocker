@@ -208,7 +208,7 @@ service_init() {
 }
 
 # servicetype servicevsn servicename serviceid
-drun() {
+dprepare() {
   servicetype=$1
   servicevsn=$2
   servicename=$3
@@ -266,13 +266,32 @@ drun() {
   else
     image=$repohost:5000/$servicetype:$servicevsn
   fi
-  echo $image
-  
-  #docker image|grep $serviceid
+}
+dcreate() {
+  servicetype=$1
+  servicevsn=$2
+  servicename=$3
+  serviceid=$4
+  serviceinfo=$SERVICE_DIR/$serviceid/admin/service.ini
+
+  if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" -o "x$servicename" = "x" -o "x$serviceid" = "x" ]; then
+    usage
+    exit 1
+  fi
+
+  [ -d $SERVICE_DIR/$serviceid ] || die "No serviceid directory:$SERVICE_DIR/$serviceid!"
+  prj_id=abcdefg
+  if docker pull $repohost:5000/$prj_id/$serviceid:latest; then
+    echo
+    #image=$repohost:5000/$prj_id/$serviceid:latest
+  else
+    image=$repohost:5000/$servicetype:$servicevsn
+  fi
+
   docker run -d --cidfile=$SERVICE_DIR/$serviceid/containerid \
                 --name $serviceid -h $serviceid $volume --net=host \
                 -v "$SERVICE_DIR/$serviceid/admin:/opt/nicedocker" \
-		-e "NICESCALE=1" $image
+                -e "NICESCALE=1" $image
   es=$?
   if [ $es -eq 0 ]; then
     echo "DEPLOY_STATUS=ok" >> $serviceinfo
@@ -552,7 +571,12 @@ dps() {
 }
 
 if [ "x$1" = "xrun" ]; then
-  drun $2 $3 $4 $5 $6
+  dprepare $2 $3 $4 $5 
+  dcreate $2 $3 $4 $5
+if [ "x$1" = "xprepare" ]; then
+  dprepare $2 $3 $4 $5 $6
+if [ "x$1" = "xcreate" ] then
+  dcreate $2 $3 $4 $5 $6
 elif [ "x$1" = "xstart" ]; then
   dstart $2
 elif [ "x$1" = "xstop" ]; then
