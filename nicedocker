@@ -258,15 +258,8 @@ dprepare() {
   [ ! -z $conf ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf:ro "$volume
   [ ! -z $log ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
   [ ! -z $data ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
-
-  prj_id=abcdefg
-  if docker images|grep -q $serviceid || docker pull $repohost:5000/$prj_id/$serviceid:latest; then
-    echo
-    #image=$repohost:5000/$prj_id/$serviceid:latest
-  else
-    image=$repohost:5000/$servicetype:$servicevsn
-  fi
 }
+
 dcreate() {
   servicetype=$1
   servicevsn=$2
@@ -280,6 +273,13 @@ dcreate() {
   fi
 
   [ -d $SERVICE_DIR/$serviceid ] || die "No serviceid directory:$SERVICE_DIR/$serviceid!"
+
+  ini_parse $SERVICE_CONF $servicetype
+  volume=
+  [ ! -z $conf ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf:ro "$volume
+  [ ! -z $log ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
+  [ ! -z $data ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
+
   prj_id=abcdefg
   if docker pull $repohost:5000/$prj_id/$serviceid:latest; then
     echo
@@ -551,7 +551,7 @@ dpush() {
 
 dps() {
   #tabs -8
-  echo -e "cid\t\tsid\t\tsname\t\tsip\t\tstype\t\trunning"
+  echo -e "cid\t\tsid\t\t\tsname\t\tsip\t\tstype\t\trunning"
   cd $SERVICE_DIR
   for sid in `ls -l|grep -v admin|grep ^d|awk '{print $9}'`; do
     get_cid $sid 2>/dev/null
@@ -573,10 +573,10 @@ dps() {
 if [ "x$1" = "xrun" ]; then
   dprepare $2 $3 $4 $5 
   dcreate $2 $3 $4 $5
-if [ "x$1" = "xprepare" ]; then
-  dprepare $2 $3 $4 $5 $6
-if [ "x$1" = "xcreate" ] then
-  dcreate $2 $3 $4 $5 $6
+elif [ "x$1" = "xprepare" ]; then
+  dprepare $2 $3 $4 $5
+elif [ "x$1" = "xcreate" ]; then
+  dcreate $2 $3 $4 $5
 elif [ "x$1" = "xstart" ]; then
   dstart $2
 elif [ "x$1" = "xstop" ]; then
