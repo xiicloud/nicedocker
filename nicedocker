@@ -166,17 +166,18 @@ dprepare() {
   [ -d $SERVICE_DIR/$serviceid/admin ] || mkdir -p $SERVICE_DIR/$serviceid/admin
 
   repohost=`get_repo`
-  image=$repohost:5000/$servicetype:$servicevsn
+  image=$repohost:5000/nicescale/$servicetype:$servicevsn
 
   tmp_container=`date +%s`
-  docker run --rm --name $tmp_container $image sleep 90 &
-  sleep 0.4
+  docker run -it -d --name $tmp_container $image /bin/bash > /dev/null
   docker cp $tmp_container:/opt/nicedocker/serviceinfo.ini admin/
   . admin/serviceinfo.ini
   [ ! -z "$conf" ] && docker cp $tmp_container:$conf ./ && mv `basename $conf` conf
   [ ! -z "$log" ] && docker cp $tmp_container:$log ./ && mv `basename $log` log
   [ ! -z "$data" ] && docker cp $tmp_container:$data ./ && mv `basename $data` data
   docker cp $tmp_container:/opt/nicedocker/scripts ./
+  docker kill $tmp_container > /dev/null
+  docker rm $tmp_container > /dev/null
 
   ln -s $SERVICE_DIR/$serviceid $SERVICE_DIR/$servicename
 
@@ -228,7 +229,7 @@ dcreate() {
     echo
     #image=$repohost:5000/$prj_id/$serviceid:latest
   else
-    image=$repohost:5000/$servicetype:$servicevsn
+    image=$repohost:5000/nicescale/$servicetype:$servicevsn
   fi
 
   docker run -d --cidfile=$SERVICE_DIR/$serviceid/containerid \
@@ -263,7 +264,7 @@ dservice() {
     /nicescale/$sid/scripts/start.sh
     ;;
   stop)
-    /nicescale/$sid/scripts/stop.sh
+    /nicescale/$sid/scripts/stop.sh &
     ;;
   reload)
     /nicescale/$sid/scripts/reload.sh
@@ -306,7 +307,7 @@ dstop() {
   [ -f $SERVICE_DIR/$sid/containerid ] || die "service $1 containerid file($SERVICE_DIR/$1/containerid) not exist"
   cid=$(cat $SERVICE_DIR/$sid/containerid)
   is_running $sid || warn "service $sid status is stopped, should not be stopped again."
-#  dservice $sid stop
+  dservice $sid stop
   docker stop $cid 
 }
 
@@ -379,10 +380,8 @@ drm() {
   get_cid $sid
   [ ! -z "$cid" ] && is_running $sid && die "service $ssid running, cannot remove"
   if [ ! -z "$cid" ]; then
-    echo -n "remove docker container $cid "
+    echo "removing docker container $cid "
     docker rm $cid > /dev/null
-    [ $? -ne 0 ] && echo failed. && exit 1
-    echo ok.
   fi
   [ "$i" = 'y' ] || echo -n "prepare to rm dir $SERVICE_DIR/$sid, which may contains data directory!
 are you sure[Y|n]? "
@@ -450,55 +449,13 @@ dexec() {
     usage
     exit 1
   fi
-  get_name_id $sid || return 1
-
-  PIPE_DIR=$SERVICE_DIR/$sid/admin
-  [ -d $PIPE_DIR ] || die "Directory $SERVICE_DIR/$sid/admin not exist"
-
-  # check lock
-  if [ -f $PIPE_DIR/lock ]; then
-    now=`date +%s`
-    locktime=`stat --format=%Y $PIPE_DIR/lock`
-    dif=$(($now-$locktime))
-    period=`cat $PIPE_DIR/lock`
-    [ $dif -lt $period ] && die "service $sid is executing another command."
-  fi
-  # make lock, lifetime of lock is 300s
-  echo 300 > $PIPE_DIR/lock
-
-  OUTPUT=$PIPE_DIR/docker_execlog
-  [ -f $OUTPUT ] || touch $OUTPUT
-  OUTPUT_ERR=$PIPE_DIR/docker_execlog_err
-  [ -f $OUTPUT_ERR ] || touch $OUTPUT_ERR
+  get_cid $sid
+  [ -z "$cid" ] && die "service $sid no container"
+  is_running $sid || die "service $sid no run."
+  PID=`docker top $cid|awk '{print $2}'|tail -1`
   cmd="$3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12} ${13} ${14} ${15} ${16} ${17} ${18} ${19}"
-  cmd=`echo $cmd|sed -n 's/ *$//p'` # chomp whitespace
-
-  if [ "x$cmd" = "x" ]; then
-    usage
-    exit 1
-  fi
-
-  echo $cmd > $PIPE_DIR/docker_out
-  echo '/bin/echo -e "\n$?\nnicescale........end" 1>&2' > $PIPE_DIR/docker_out
-  while [ true ]; do
-    if tail $OUTPUT_ERR|grep -q 'nicescale........end'; then
-      break
-    fi
-    sleep 0.02
-  done
-  cat $OUTPUT
-  > $OUTPUT
-  es=`tail -n2 $OUTPUT_ERR|head -n1`
-  if [ $es -ne 0 ]; then
-    errout=`head -n -2 $OUTPUT_ERR`
-    echo $errout 1>&2
-  fi
-  > $OUTPUT_ERR
-
-  # release lock
-  /bin/rm $PIPE_DIR/lock
-
-  exit $es
+  cmd=`echo $cmd|sed -n 's/ *$//p'`
+  nsenter -m -u -i -n -p -t $PID $cmd
 }
 
 # this  is used for commit image after installed modules to filesystem
