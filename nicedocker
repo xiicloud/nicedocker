@@ -264,7 +264,7 @@ dservice() {
     /nicescale/$sid/scripts/start.sh
     ;;
   stop)
-    /nicescale/$sid/scripts/stop.sh &
+    /nicescale/$sid/scripts/stop.sh
     ;;
   reload)
     /nicescale/$sid/scripts/reload.sh
@@ -307,8 +307,10 @@ dstop() {
   [ -f $SERVICE_DIR/$sid/containerid ] || die "service $1 containerid file($SERVICE_DIR/$1/containerid) not exist"
   cid=$(cat $SERVICE_DIR/$sid/containerid)
   is_running $sid || warn "service $sid status is stopped, should not be stopped again."
+  get_name_id $sid
+  docker ps | grep -wq $sid || exit 0
   dservice $sid stop
-  docker stop $cid 
+  docker kill $cid 
 }
 
 dkill() {
@@ -452,7 +454,7 @@ dexec() {
   get_cid $sid
   [ -z "$cid" ] && die "service $sid no container"
   is_running $sid || die "service $sid no run."
-  PID=`docker top $cid|awk '{print $2}'|tail -1`
+  PID=`docker top $cid|awk '{print $2}'|head -2|tail -1`
   cmd="$3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12} ${13} ${14} ${15} ${16} ${17} ${18} ${19}"
   cmd=`echo $cmd|sed -n 's/ *$//p'`
   nsenter -m -u -i -n -p -t $PID $cmd
