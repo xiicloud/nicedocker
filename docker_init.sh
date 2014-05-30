@@ -12,7 +12,18 @@ RSYNCDIR=/opt/nicescale/service_init
 [ -d $RSYNCDIR ] || mkdir -p $RSYNCDIR
 
 SERVICE_TYPES="mysql redis redis_cache redis_store memcached apache_php haproxy tomcat"
-REPOHOST=repo.nicescale.com
+REPOHOST=nicedocker.com
+get_repo() {
+  local name
+  local region
+  if [ -f $CSP_FILE ]; then
+    . $CSP_FILE
+    echo $region.$name.$REPOHOST
+  else
+    echo $REPOHOST
+  fi
+}
+
 
 cd $WDIR
 distribution=`head -1 /etc/issue.net |cut -f1 -d' '`
@@ -25,8 +36,6 @@ if [ "$distribution" = "Ubuntu" ]; then
   case $version in
     "14")
       apt-get -y install lxc-docker
-      #apt-get -y install docker.io
-      #ln -sf /usr/bin/docker.io /usr/local/bin/docker
       service lxc-docker start
       ;;
     "12")
@@ -66,16 +75,10 @@ chmod 755 $NICESCALEDIR/bin/nicedocker
 ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/nicedocker
 ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/dockernice
 
+repohost=`get_repo`
 for s in $SERVICE_TYPES; do
-  docker pull $REPOHOST:5000/$s
+  docker pull $repohost:5000/nicescale/$s
 done
-
-cd $WDIR
-wget https://github.com/NiceScale/service_init/archive/latest.tar.gz -O latest.tar.gz &&
-tar zxf latest.tar.gz &&
-cd service_init-latest &&
-tar zxf service_init.tgz &&
-/bin/mv service_init/* $RSYNCDIR/
 
 cd /
 rm -fr $WDIR
