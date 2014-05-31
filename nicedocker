@@ -224,13 +224,13 @@ dcreate() {
   [ ! -z $data ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
 
   repohost=`get_repo`
-  prj_id=abcdefg
-  if docker pull $repohost:5000/$prj_id/$serviceid:latest; then
-    echo
+  #prj_id=abcdefg
+  #if docker pull $repohost:5000/$prj_id/$serviceid:latest; then
+  #  echo
     #image=$repohost:5000/$prj_id/$serviceid:latest
-  else
+  #else
     image=$repohost:5000/nicescale/$servicetype:$servicevsn
-  fi
+  #fi
 
   docker run -d --cidfile=$SERVICE_DIR/$serviceid/containerid \
                 --name $serviceid -h $serviceid $volume --net=host \
