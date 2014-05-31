@@ -83,7 +83,9 @@ for s in $SERVICE_TYPES; do
 done
 
 cd /
-rm -fr $WDIR
+
+# make sure no remove root forever!
+[ ! -z "$WDIR" ] && [ "$WDIR" != "/" ] && [ `dirname $WDIR` = "/tmp" ] && rm -fr $WDIR
 [ $distribution = "Ubuntu" -a $version = "12" ] &&
 echo "Ubuntu 12.04 should reboot for new kernel."
 echo "docker and images ready now."
