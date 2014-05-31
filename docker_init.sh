@@ -24,7 +24,6 @@ get_repo() {
   fi
 }
 
-
 cd $WDIR
 distribution=`head -1 /etc/issue.net |cut -f1 -d' '`
 if [ "$distribution" = "Ubuntu" ]; then
@@ -70,10 +69,13 @@ git clone https://github.com/NiceScale/nicedocker.git
 /bin/cp nicedocker/cgmount.sh $NICESCALEDIR/bin/
 /bin/cp nicedocker/nicedocker $NICESCALEDIR/bin/
 /bin/cp nicedocker/nicedocker.ini $NICESCALEDIR/etc/
+/bin/cp nicedocker/nsexec $NICESCALEDIR/bin/
 chmod 755 $NICESCALEDIR/bin/cgmount.sh
 chmod 755 $NICESCALEDIR/bin/nicedocker
+chmod 755 $NICESCALEDIR/bin/nsexec
 ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/nicedocker
 ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/dockernice
+ln -sf $NICESCALEDIR/bin/nsexec /usr/local/bin/nsexec
 
 repohost=`get_repo`
 for s in $SERVICE_TYPES; do

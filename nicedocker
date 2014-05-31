@@ -457,7 +457,8 @@ dexec() {
   PID=`docker top $cid|awk '{print $2}'|head -2|tail -1`
   cmd="$3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12} ${13} ${14} ${15} ${16} ${17} ${18} ${19}"
   cmd=`echo $cmd|sed -n 's/ *$//p'`
-  nsenter -m -u -i -n -p -t $PID $cmd
+  [ -e /usr/local/bin/nsexec ] || die "no nsexec command."
+  /usr/local/bin/nsexec $PID $cmd
 }
 
 # this  is used for commit image after installed modules to filesystem
