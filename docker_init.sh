@@ -4,7 +4,7 @@ echo "docker init beginning ..."
 
 tv=`date +%s`
 WDIR=/tmp/docker_$tv
-[ -d $WDIR ] || mkdir /tmp/$WDIR
+[ -d $WDIR ] || mkdir $WDIR
 
 [ -d /nicescale ] || mkdir /nicescale
 NICESCALEDIR=/opt/nicescale/support
