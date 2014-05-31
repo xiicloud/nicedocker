@@ -53,7 +53,7 @@ get_repo() {
   local region
   if [ -f $CSP_FILE ]; then
     . $CSP_FILE
-    echo $region-$name.$REPOHOST
+    echo $region.$name.$REPOHOST
   else
     echo $REPOHOST
   fi
