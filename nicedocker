@@ -492,7 +492,7 @@ dpush() {
 
 dps() {
   #tabs -8
-  echo -e "cid\t\tsid\t\t\tsname\t\tsip\t\tstype\t\trunning"
+  echo -e "cid\t\tsid\t\t\t  sname\t\tsip\t\tstype\t\trunning"
   cd $SERVICE_DIR
   for sid in `ls -l|grep -v admin|grep ^d|awk '{print $9}'`; do
     get_cid $sid 2>/dev/null
@@ -507,7 +507,7 @@ dps() {
     fi
     ipaddr=`docker inspect $cid 2>/dev/null|grep IPAddress|sed -n "s/.*\"\([0-9].*[0-9]\)\".*/\1/p"`
     [ -z $ipaddr ] && ipaddr='N/A\t'
-    echo -e "${cid:0:6}\t\t$sid\t\t`get_name_by_id $sid`\t\t$ipaddr\t`get_type_by_id $sid`:`get_vsn_by_id $sid`\t$running"
+    echo -e "${cid:0:6}\t\t$sid  `get_name_by_id $sid`\t\t$ipaddr\t`get_type_by_id $sid`:`get_vsn_by_id $sid`\t$running"
   done
 }
 
