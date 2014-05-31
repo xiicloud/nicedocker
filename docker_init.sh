@@ -12,6 +12,7 @@ NICESCALEDIR=/opt/nicescale/support
 #[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 
 SERVICE_TYPES="mysql redis redis_cache redis_store memcached apache_php haproxy tomcat"
+CSP_FILE=/etc/.fp/csp.conf
 REPOHOST=nicedocker.com
 get_repo() {
   local name
