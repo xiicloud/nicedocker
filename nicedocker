@@ -4,6 +4,8 @@ SERVICE_DIR=/services
 [ -d $SERVICE_DIR ] || mkdir $SERVICE_DIR
 CSP_FILE=/etc/.fp/csp.conf
 REPOHOST=nicedocker.com
+logrotate_file=/opt/nicescale/support/etc/logrotate-services.conf
+[ -d /opt/nicescale/support/etc ] || mkdir -p /opt/nicescale/support/etc
 
 # supported command
 usage() {
@@ -245,6 +247,8 @@ dcreate() {
                 -e "NICESCALE=1" $image
   es=$?
   if [ $es -eq 0 ]; then
+    [ -d $SERVICE_DIR/$serviceid/logrotate.d ] &&
+    echo "include $SERVICE_DIR/$serviceid/logrotate.d" >> $logrotate_file
     echo "DEPLOY_STATUS=ok" >> $serviceinfo
   else
     echo "DEPLOY_STATUS=no" >> $serviceinfo
@@ -404,6 +408,8 @@ are you sure[Y|n]? "
   if [ "$i" = 'y' -o "$i" = 'Y' ]; then 
     [ -z "$sid" ] || /bin/rm -fr $SERVICE_DIR/$sid
     [ -z "$sname" ] || unlink $SERVICE_DIR/$sname
+    [ -f $logrotate_file ] &&
+    sed -i "/include \\$SERVICE_DIR\/$sid\/logrotate.d/d" $logrotate_file
     echo service $ssid removed! 
   else
     echo service $ssid stopped, but not removed.
