@@ -168,9 +168,14 @@ dprepare() {
   repohost=`get_repo`
   image=$repohost:5000/nicescale/$servicetype:$servicevsn
 
-  tmp_container="tmp"-`date +%s`
+  tmp_container="tmp-container"-`date +%s`
   docker run --rm --name $tmp_container $image sleep 300 &
-  sleep 3
+  count=0
+  while [ $count -lt 25 ]; do
+    sleep 0.2
+    (( count++ ))
+    docker ps|grep -q $c && break
+  done
   docker cp $tmp_container:/opt/nicedocker/serviceinfo.ini admin/
   . admin/serviceinfo.ini
   [ ! -z "$conf" ] && docker cp $tmp_container:$conf ./ && mv `basename $conf` conf
