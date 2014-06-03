@@ -272,19 +272,19 @@ dservice() {
   fi
   case "$action" in
   start)
-    /nicescale/$sid/scripts/start.sh
+    $SERVICE_DIR/$sid/scripts/start.sh
     ;;
   stop)
-    /nicescale/$sid/scripts/stop.sh
+    $SERVICE_DIR/$sid/scripts/stop.sh
     ;;
   reload)
-    /nicescale/$sid/scripts/reload.sh
+    $SERVICE_DIR/$sid/scripts/reload.sh
     ;;
   restart)
-    /nicescale/$sid/scripts/restart.sh
+    $SERVICE_DIR/$sid/scripts/restart.sh
     ;;
   status)
-    /nicescale/$sid/scripts/status.sh
+    $SERVICE_DIR/$sid/scripts/status.sh
     ;;
   *)
     echo "Usage: $0 service $sid {start|stop|restart|reload|status}" >&2
