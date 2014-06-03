@@ -176,7 +176,7 @@ dprepare() {
   while [ $count -lt 25 ]; do
     sleep 0.2
     (( count++ ))
-    docker ps|grep -q $c && break
+    docker ps|grep -q $tmp_container && break
   done
   docker cp $tmp_container:/opt/nicedocker/serviceinfo.ini admin/
   . admin/serviceinfo.ini
