@@ -5,7 +5,7 @@ tv=`date +%s`
 WDIR=/tmp/docker_$tv
 [ -d $WDIR ] || mkdir $WDIR
 
-[ -d /nicescale ] || mkdir /nicescale
+[ -d /services ] || mkdir /services
 NICESCALEDIR=/opt/nicescale/support
 [ -d $NICESCALEDIR/bin ] || mkdir -p $NICESCALEDIR/bin
 #[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
