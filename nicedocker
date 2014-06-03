@@ -169,8 +169,8 @@ dprepare() {
   image=$repohost:5000/nicescale/$servicetype:$servicevsn
 
   tmp_container="tmp"-`date +%s`
-  docker run -it --rm --name $tmp_container $image sleep 300 &
-  sleep 1
+  docker run --rm --name $tmp_container $image sleep 300 &
+  sleep 3
   docker cp $tmp_container:/opt/nicedocker/serviceinfo.ini admin/
   . admin/serviceinfo.ini
   [ ! -z "$conf" ] && docker cp $tmp_container:$conf ./ && mv `basename $conf` conf
@@ -180,7 +180,6 @@ dprepare() {
   docker cp $tmp_container:/opt/nicedocker/logrotate.d ./ 2>/dev/null && 
   sed -i "s/\$serviceid/$serviceid/g" logrotate.d/* 2>/dev/null # if no exist, ignore
   docker kill $tmp_container > /dev/null
-  docker rm $tmp_container > /dev/null
 
   ln -s $SERVICE_DIR/$serviceid $SERVICE_DIR/$servicename
 
