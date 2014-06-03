@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SERVICE_DIR=/nicescale
+SERVICE_DIR=/services
 [ -d $SERVICE_DIR ] || mkdir $SERVICE_DIR
 CSP_FILE=/etc/.fp/csp.conf
 REPOHOST=nicedocker.com
@@ -168,14 +168,17 @@ dprepare() {
   repohost=`get_repo`
   image=$repohost:5000/nicescale/$servicetype:$servicevsn
 
-  tmp_container=`date +%s`
-  docker run -it -d --name $tmp_container $image /bin/bash > /dev/null
+  tmp_container="tmp"-`date +%s`
+  docker run -it --rm --name $tmp_container $image sleep 300 &
+  sleep 1
   docker cp $tmp_container:/opt/nicedocker/serviceinfo.ini admin/
   . admin/serviceinfo.ini
   [ ! -z "$conf" ] && docker cp $tmp_container:$conf ./ && mv `basename $conf` conf
   [ ! -z "$log" ] && docker cp $tmp_container:$log ./ && mv `basename $log` log
   [ ! -z "$data" ] && docker cp $tmp_container:$data ./ && mv `basename $data` data
   docker cp $tmp_container:/opt/nicedocker/scripts ./
+  docker cp $tmp_container:/opt/nicedocker/logrotate.d ./ 2>/dev/null && 
+  sed -i "s/\$serviceid/$serviceid/g" logrotate.d/* 2>/dev/null # if no exist, ignore
   docker kill $tmp_container > /dev/null
   docker rm $tmp_container > /dev/null
 
