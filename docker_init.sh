@@ -8,6 +8,9 @@ WDIR=/tmp/docker_$tv
 [ -d /services ] || mkdir /services
 NICESCALEDIR=/opt/nicescale/support
 [ -d $NICESCALEDIR/bin ] || mkdir -p $NICESCALEDIR/bin
+[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
+logrotate_file=$NICESCALEDIR/etc/logrotate-services.conf
+cron_logrotate_script=/etc/cron.daily/logrotate-services
 #[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 
 SERVICE_TYPES="mysql redis memcached apache_php haproxy tomcat"
@@ -76,6 +79,23 @@ ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/nicedocker
 ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/dockernice
 ln -sf $NICESCALEDIR/bin/nsexec /usr/local/bin/nsexec
 
+cat <<EOF > $cron_logrotate_script
+#!/bin/sh
+
+test -x /usr/sbin/logrotate || exit 0
+/usr/sbin/logrotate $logrotate_file
+EOF
+cat <<EOF > $logrotate_file
+# see "man logrotate" for details
+# rotate log files weekly
+weekly
+
+# keep 4 weeks worth of backlogs
+rotate 4
+
+# create new (empty) log files after rotating old ones
+create
+EOF
 repohost=`get_repo`
 for s in $SERVICE_TYPES; do
   docker pull $repohost:5000/nicescale/$s
