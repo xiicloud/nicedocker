@@ -1,7 +1,6 @@
 #!/bin/sh
 
 echo "docker init beginning ..."
-
 tv=`date +%s`
 WDIR=/tmp/docker_$tv
 [ -d $WDIR ] || mkdir $WDIR
@@ -11,7 +10,7 @@ NICESCALEDIR=/opt/nicescale/support
 [ -d $NICESCALEDIR/bin ] || mkdir -p $NICESCALEDIR/bin
 #[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 
-SERVICE_TYPES="mysql redis redis_cache redis_store memcached apache_php haproxy tomcat"
+SERVICE_TYPES="mysql redis memcached apache_php haproxy tomcat"
 CSP_FILE=/etc/.fp/csp.conf
 REPOHOST=nicedocker.com
 get_repo() {
@@ -25,7 +24,6 @@ get_repo() {
   fi
 }
 
-cd $WDIR
 distribution=`head -1 /etc/issue.net |cut -f1 -d' '`
 if [ "$distribution" = "Ubuntu" ]; then
   version=`head -1 /etc/issue.net |cut -f2 -d' '`
@@ -66,11 +64,11 @@ elif [ "$distribution" = "CentOS" ]; then
 else
   echo unsupported linux distribution
 fi
-git clone https://github.com/NiceScale/nicedocker.git
-/bin/cp nicedocker/cgmount.sh $NICESCALEDIR/bin/
-/bin/cp nicedocker/nicedocker $NICESCALEDIR/bin/
-#/bin/cp nicedocker/nicedocker.ini $NICESCALEDIR/etc/
-/bin/cp nicedocker/nsexec $NICESCALEDIR/bin/
+#git clone https://github.com/NiceScale/nicedocker.git
+/bin/cp cgmount.sh $NICESCALEDIR/bin/
+/bin/cp nicedocker $NICESCALEDIR/bin/
+#/bin/cp nicedocker.ini $NICESCALEDIR/etc/
+/bin/cp nsexec $NICESCALEDIR/bin/
 chmod 755 $NICESCALEDIR/bin/cgmount.sh
 chmod 755 $NICESCALEDIR/bin/nicedocker
 chmod 755 $NICESCALEDIR/bin/nsexec
@@ -83,7 +81,6 @@ for s in $SERVICE_TYPES; do
   docker pull $repohost:5000/nicescale/$s
 done
 
-cd /
 
 # make sure no remove root forever!
 [ ! -z "$WDIR" ] && [ "$WDIR" != "/" ] && [ `dirname $WDIR` = "/tmp" ] && rm -fr $WDIR
