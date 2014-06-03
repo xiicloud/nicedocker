@@ -85,6 +85,8 @@ cat <<EOF > $cron_logrotate_script
 test -x /usr/sbin/logrotate || exit 0
 /usr/sbin/logrotate $logrotate_file
 EOF
+chmod a+x $cron_logrotate_script
+
 cat <<EOF > $logrotate_file
 # see "man logrotate" for details
 # rotate log files weekly
@@ -95,6 +97,9 @@ rotate 4
 
 # create new (empty) log files after rotating old ones
 create
+
+# include service's logrotate.d directory
+
 EOF
 repohost=`get_repo`
 for s in $SERVICE_TYPES; do
