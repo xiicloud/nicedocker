@@ -54,14 +54,15 @@ if [ "$distribution" = "Ubuntu" ]; then
     *)
       echo unsupported distribution $version
   esac
-  apt-get -y install aufs-tools git
+  
+  sed -i 's/#DOCKER_OPTS=.*/DOCKER_OPTS="--storage-driver=devicemapper"/'  /etc/default/docker
 elif [ "$distribution" = "CentOS" ]; then
   version=`head -1 /etc/issue.net |cut -f3 -d' '`
   [ `echo $version'>'6.4|bc -l` -eq 0 ] && echo not supported version && exit 1
   [ ! -f /etc/yum.repos.d/epel.repo ] &&
   wget http://epel.mirror.net.in/epel/6/i386/epel-release-6-8.noarch.rpm &&
   rpm -ivh epel-release-6-8.noarch.rpm
-  yum -y install git docker-io
+  yum -y install docker-io
   service docker start
   chkconfig docker on
 else
