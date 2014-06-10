@@ -37,7 +37,6 @@ if [ "$distribution" = "Ubuntu" ]; then
   case $version in
     "14")
       apt-get -y install lxc-docker
-      service lxc-docker start
       ;;
     "12")
       apt-get -y install linux-image-generic-lts-raring linux-headers-generic-lts-raring
@@ -45,17 +44,16 @@ if [ "$distribution" = "Ubuntu" ]; then
           apt-get install apt-transport-https
         }
       apt-get -y install lxc-docker
-      service lxc-docker start
       ;;
     "13")
       apt-get -y install lxc-docker
-      service lxc-docker start
       ;;
     *)
       echo unsupported distribution $version
   esac
   
-  sed -i 's/#DOCKER_OPTS=.*/DOCKER_OPTS="--storage-driver=devicemapper"/'  /etc/default/docker
+  sed -i 's/#DOCKER_OPTS=.*/DOCKER_OPTS="--storage-driver=devicemapper --iptables=false"/'  /etc/default/docker
+  service lxc-docker restart
 elif [ "$distribution" = "CentOS" ]; then
   version=`head -1 /etc/issue.net |cut -f3 -d' '`
   [ `echo $version'>'6.4|bc -l` -eq 0 ] && echo not supported version && exit 1
@@ -63,7 +61,8 @@ elif [ "$distribution" = "CentOS" ]; then
   wget http://epel.mirror.net.in/epel/6/i386/epel-release-6-8.noarch.rpm &&
   rpm -ivh epel-release-6-8.noarch.rpm
   yum -y install docker-io
-  service docker start
+  sed -i 's/other_args=.*/other_args="--selinux-enabled --iptables=false"/' /etc/sysconfig/docker
+  service docker restart
   chkconfig docker on
 else
   echo unsupported linux distribution

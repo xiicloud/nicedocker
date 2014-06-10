@@ -228,7 +228,7 @@ dcreate() {
 
   . $SERVICE_DIR/$serviceid/admin/serviceinfo.ini
   volume=
-  [ ! -z $conf ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf:ro "$volume
+  [ ! -z $conf ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf "$volume
   [ ! -z $log ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
   [ ! -z $data ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
 
@@ -244,6 +244,7 @@ dcreate() {
   docker run -d --cidfile=$SERVICE_DIR/$serviceid/containerid \
                 --name $serviceid -h $serviceid $volume --net=host \
                 -v "$SERVICE_DIR/$serviceid/admin:/opt/nicedocker" \
+                -v "/dev/log:/dev/log"
                 -e "NICESCALE=1" $image
   es=$?
   if [ $es -eq 0 ]; then
