@@ -241,7 +241,7 @@ dcreate() {
     image=$repohost:5000/nicescale/$servicetype:$servicevsn
   #fi
 
-  docker run -d --cidfile=$SERVICE_DIR/$serviceid/containerid \
+  docker run -itd --cidfile=$SERVICE_DIR/$serviceid/containerid \
                 --name $serviceid $volume --net=host \
                 -v "$SERVICE_DIR/$serviceid/admin:/opt/nicedocker" \
                 -v "/dev/log:/dev/log"
