@@ -244,7 +244,7 @@ dcreate() {
   docker run -itd --cidfile=$SERVICE_DIR/$serviceid/containerid \
                 --name $serviceid $volume --net=host \
                 -v "$SERVICE_DIR/$serviceid/admin:/opt/nicedocker" \
-                -v "/dev/log:/dev/log"
+                -v "/dev/log:/dev/log" \
                 -e "NICESCALE=1" $image
   es=$?
   if [ $es -eq 0 ]; then
