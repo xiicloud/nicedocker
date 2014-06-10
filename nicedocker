@@ -455,13 +455,13 @@ drename() {
   serviceinfo=$SERVICE_DIR/$sid/admin/service.ini
   if [ -f  $serviceinfo ]; then
     sed -i "s/SERVICE_NAME.*/SERVICE_NAME=$new/" $serviceinfo
-    is_running $new && dexec xxx $new 'kill `ps ax|grep bas[h]|grep rcfile|cut -c1-5`'
+    is_running $new && dexec $new 'kill `ps ax|grep bas[h]|grep rcfile|cut -c1-5`'
   fi
   info service name $old changed to $new ok.
 }
 
 dexec() {
-  sid=$2
+  sid=$1
   if [ -z "$sid" ]; then
     usage
     exit 1
@@ -470,10 +470,15 @@ dexec() {
   [ -z "$cid" ] && die "service $sid no container"
   is_running $sid || die "service $sid no run."
   PID=`docker top $cid|awk '{print $2}'|head -2|tail -1`
-  cmd="$3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12} ${13} ${14} ${15} ${16} ${17} ${18} ${19}"
-  cmd=`echo $cmd|sed -n 's/ *$//p'`
   [ -e /usr/local/bin/nsexec ] || die "no nsexec command."
-  /usr/local/bin/nsexec $PID $cmd
+
+  count=$(($# + 1 ))
+  args=
+  while [ $(( count-- )) -gt 2 ]; do
+    args="\"\$$count\" $args"
+  done
+
+  eval "/usr/local/bin/nsexec $PID $args"
 }
 
 # this  is used for commit image after installed modules to filesystem
@@ -550,7 +555,12 @@ elif [ "x$1" = "xlogin" ]; then
 elif [ "x$1" = "xattach" ]; then
   dattach $2
 elif [ "x$1" = "xexec" ]; then
-  dexec $*
+  count=$(($# + 1 ))
+  args=
+  while [ $(( count-- )) -gt 2 ]; do
+    args="\"\$${count}\" $args"
+  done
+  eval "dexec $args"
 elif [ "x$1" = "xcommit" ]; then
   dreimage $2
 elif [ "x$1" = "xsearch" ]; then
