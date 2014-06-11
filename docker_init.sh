@@ -13,7 +13,7 @@ logrotate_file=$NICESCALEDIR/etc/logrotate-services.conf
 cron_logrotate_script=/etc/cron.daily/logrotate-services
 #[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 
-SERVICE_TYPES="mysql redis memcached apache_php haproxy tomcat"
+SERVICE_TYPES="mysql redis memcached apache_php haproxy tomcat percona-mysql"
 CSP_FILE=/etc/.fp/csp.conf
 REPOHOST=nicedocker.com
 get_repo() {
