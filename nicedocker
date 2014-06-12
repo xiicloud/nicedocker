@@ -4,7 +4,6 @@ SERVICE_DIR=/services
 [ -d $SERVICE_DIR ] || mkdir $SERVICE_DIR
 CSP_FILE=/etc/.fp/csp.conf
 REPOHOST=nicedocker.com
-logrotate_file=/opt/nicescale/support/etc/logrotate-services.conf
 [ -d /opt/nicescale/support/etc ] || mkdir -p /opt/nicescale/support/etc
 
 # supported command
@@ -184,8 +183,8 @@ dprepare() {
   [ ! -z "$log" ] && docker cp $tmp_container:$log ./ && mv `basename $log` log
   [ ! -z "$data" ] && docker cp $tmp_container:$data ./ && mv `basename $data` data
   docker cp $tmp_container:/opt/nicedocker/scripts ./
-  docker cp $tmp_container:/opt/nicedocker/logrotate.d ./ 2>/dev/null && 
-  sed -i "s/\$serviceid/$serviceid/g" logrotate.d/* 2>/dev/null # if no exist, ignore
+  docker cp $tmp_container:/opt/nicedocker/crontab ./ 2>/dev/null && 
+  sed -i "s/\$service_id/$serviceid/g" crontab 2>/dev/null # if no exist, ignore
   docker kill $tmp_container > /dev/null
 
   ln -s $SERVICE_DIR/$serviceid $SERVICE_DIR/$servicename
@@ -248,14 +247,13 @@ dcreate() {
                 -e "NICESCALE=1" $image
   es=$?
   if [ $es -eq 0 ]; then
-    [ -d $SERVICE_DIR/$serviceid/logrotate.d ] &&
-    echo "include $SERVICE_DIR/$serviceid/logrotate.d" >> $logrotate_file
     echo "DEPLOY_STATUS=ok" >> $serviceinfo
   else
     echo "DEPLOY_STATUS=no" >> $serviceinfo
   fi
   [ $es -ne 0 ] && exit $es
-  [ -x $SERVICE_DIR/$sid/scripts/create.sh ] && sleep 2 && $SERVICE_DIR/$sid/scripts/create.sh
+  [ -f $SERVICE_DIR/$serviceid/crontab ] && dcron_add $serviceid
+  [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && sleep 2 && $SERVICE_DIR/$serviceid/scripts/create.sh
 }
 
 dservice() {
@@ -410,8 +408,7 @@ are you sure[Y|n]? "
   if [ "$i" = 'y' -o "$i" = 'Y' ]; then 
     [ -z "$sid" ] || /bin/rm -fr $SERVICE_DIR/$sid
     [ -z "$sname" ] || unlink $SERVICE_DIR/$sname
-    [ -f $logrotate_file ] &&
-    sed -i "/include \\$SERVICE_DIR\/$sid\/logrotate.d/d" $logrotate_file
+    dcron_del $sid
     echo service $ssid removed! 
   else
     echo service $ssid stopped, but not removed.
@@ -529,6 +526,42 @@ dps() {
     [ -z $ipaddr ] && ipaddr='N/A\t'
     echo -e "${cid:0:12}\t$sid  `get_name_by_id $sid`\t$ipaddr\t`get_type_by_id $sid`:`get_vsn_by_id $sid`\t$running"
   done
+}
+
+CRONTAB_FILE=/var/spool/cron/crontabs/root
+dcron_head() {
+  if [ -f $CRONTAB_FILE ]; then
+    grep -q ^SHELL $CRONTAB_FILE || sed -i "1iSHELL=/bin/bash" $CRONTAB_FILE
+    grep -q ^PATH $CRONTAB_FILE || sed -i "2iPATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin" $CRONTAB_FILE
+  else
+    cat <<EOF > $CRONTAB_FILE
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+# m h dom mon dow    command
+
+EOF
+  fi
+}
+dcron_add() {
+  sid=$1
+  dcron_head
+  service_cronfile=$tdir/crontab
+  [ ! -f $service_cronfile ] && 
+  #echo "no cron for service $sid to install" &&
+  && exit 0
+  grep -q "$sid" $CRONTAB_FILE &&
+  #echo "cron for service $sid add already." &&
+  exit 0
+  echo "adding cron for service $sid."
+  echo "### cron for service $sid" >> $CRONTAB_FILE
+  sed "s/\$service_id/$sid/g" $service_cronfile >> $CRONTAB_FILE
+  echo "### end for service $sid" >> $CRONTAB_FILE
+}
+dcron_del() {
+  sid=$1
+  echo "deleting cron for service $sid"
+  sed -i "/$sid/d" $CRONTAB_FILE
 }
 
 if [ "x$1" = "xrun" ]; then
