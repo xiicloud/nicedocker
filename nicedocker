@@ -586,8 +586,6 @@ elif [ "x$1" = "xstop" ]; then
   dstop $2
 elif [ "x$1" = "xrestart" ]; then
   drestart $2
-elif [ "x$1" = "xreload" ]; then
-  dreload $2
 elif [ "x$1" = "xservice" ]; then
   dservice $2 $3
 elif [ "x$1" = "xrm" ]; then
