@@ -242,7 +242,7 @@ dcreate() {
   #fi
 
   docker run -itd --cidfile=$SERVICE_DIR/$serviceid/containerid \
-                --name $serviceid $volume --net=host \
+                --name $serviceid $volume --net=host ----privileged=true \
                 -v "$SERVICE_DIR/$serviceid/admin:/opt/nicedocker" \
                 -v "/dev/log:/dev/log" \
                 -e "NICESCALE=1" $image
