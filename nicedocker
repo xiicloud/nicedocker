@@ -253,8 +253,15 @@ dcreate() {
     echo "DEPLOY_STATUS=no" >> $serviceinfo
   fi
   [ $es -ne 0 ] && exit $es
-  [ -f $SERVICE_DIR/$serviceid/crontab ] && dcron_add $serviceid
-  [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && sleep 2 && $SERVICE_DIR/$serviceid/scripts/create.sh
+  if [ -f $SERVICE_DIR/$serviceid/crontab ]; then
+    dcron_add $serviceid 
+    [ $? -ne 0 ] && echo "cron add failed" && exit 1
+  fi
+  if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ]; then
+    sleep 2 && $SERVICE_DIR/$serviceid/scripts/create.sh
+    [ $? -ne 0 ] && echo "execute create.sh failed after launching container." && exit 1
+  fi
+  exit 0
 }
 
 dservice() {
