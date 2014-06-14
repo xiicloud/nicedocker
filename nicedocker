@@ -110,16 +110,16 @@ get_vsn_by_name() {
 
 get_id_by_name() {
   sname=$1
-  a=$(ls -l $SERVICE_DIR/$sname)
-  [ $? -ne 0 ] && echo "unknown" && return 1
-  echo $a|sed -n 's/l.* -> .*\/\(.*\)/\1/p'
+  [ -L $SERVICE_DIR/$sname ] || die "service $sname not exist."
+  [ -f $SERVICE_DIR/$sname/admin/service.ini ] || die "no service.ini for service $sname, maybe deployed failed."
+  cat $SERVICE_DIR/$sname/admin/service.ini|sed -n 's/SERVICE_ID=\(.*\)/\1/p'
 }
 
 get_name_by_id() {
   sid=$1
-  a=$(ls -l $SERVICE_DIR|grep -w "$sid"|grep '\->')
-  [ $? -ne 0 ] && echo "unknown" && return 1
-  echo $a|sed -n 's/l.* \(.*\) -> .*/\1/p'
+  [ -d $SERVICE_DIR/$sid ] || die "service $sid not exist."
+  [ -f $SERVICE_DIR/$sid/admin/service.ini ] || die "no service.ini for service $sid, maybe deployed failed."
+  cat $SERVICE_DIR/$sid/admin/service.ini|sed -n 's/SERVICE_NAME=\(.*\)/\1/p'
 }
 
 get_cid() {
@@ -188,7 +188,7 @@ dprepare() {
   sed -i "s/\$service_id/$serviceid/g" crontab 2>/dev/null # if no exist, ignore
   docker kill $tmp_container > /dev/null
 
-  ln -s $SERVICE_DIR/$serviceid $SERVICE_DIR/$servicename
+  ln -s $serviceid $SERVICE_DIR/$servicename
 
   > $serviceinfo
   #[ ! -d "$SERVICE_DIR/$serviceid/conf" -a ! -z "$conf" ] && mkdir -p $SERVICE_DIR/$serviceid/conf
@@ -555,7 +555,7 @@ dlscron() {
     exit 1
   fi
   get_name_id $1
-  [ -L /etc/cron.d/$sid ] || error "no cron for service $1."
+  [ -L /etc/cron.d/$sid ] || die "no cron for service $1"
   cat /etc/cron.d/$sid
 }
 
