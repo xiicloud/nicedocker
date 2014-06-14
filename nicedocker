@@ -536,40 +536,18 @@ dps() {
   done
 }
 
-CRONTAB_FILE=/var/spool/cron/crontabs/root
-dcron_head() {
-  if [ -f $CRONTAB_FILE ]; then
-    grep -q ^SHELL $CRONTAB_FILE || sed -i "1iSHELL=/bin/bash" $CRONTAB_FILE
-    grep -q ^PATH $CRONTAB_FILE || sed -i "2iPATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin" $CRONTAB_FILE
-  else
-    cat <<EOF > $CRONTAB_FILE
-SHELL=/bin/sh
-PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
-
-# m h dom mon dow    command
-
-EOF
-  fi
-}
 dcron_add() {
   sid=$1
-  dcron_head
   service_cronfile=$SERVICE_DIR/$sid/crontab
-  [ ! -f $service_cronfile ] && 
-  #echo "no cron for service $sid to install" &&
-  exit 0
-  grep -q "$sid" $CRONTAB_FILE &&
-  #echo "cron for service $sid add already." &&
-  exit 0
-  echo "adding cron for service $sid."
-  echo "### cron for service $sid" >> $CRONTAB_FILE
-  sed "s/\$service_id/$sid/g" $service_cronfile >> $CRONTAB_FILE
-  echo "### end for service $sid" >> $CRONTAB_FILE
+  [ -f $service_cronfile ] || return 0
+  [ -d /etc/cron.d ] || error "no /etc/cron.d directory!"
+  ln -sf $service_cronfile /etc/cron.d/$sid
+  return 0
 }
 dcron_del() {
   sid=$1
-  echo "deleting cron for service $sid"
-  sed -i "/$sid/d" $CRONTAB_FILE
+  [ -L /etc/cron.d/$sid ] && unlink /etc/cron.d/$sid
+  return 0
 }
 dlscron() {
   if [ -z "$1" ]; then
@@ -577,7 +555,8 @@ dlscron() {
     exit 1
   fi
   get_name_id $1
-  crontab -l -u root|grep $sid
+  [ -L /etc/cron.d/$sid ] || error "no cron for service $1."
+  cat /etc/cron.d/$sid
 }
 
 if [ "x$1" = "xrun" ]; then
