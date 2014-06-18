@@ -6,27 +6,30 @@ CSP_FILE=/etc/.fp/csp.conf
 REPOHOST=nicedocker.com
 [ -d /opt/nicescale/support/etc ] || mkdir -p /opt/nicescale/support/etc
 
+nicescale_env() {
+  test -f $CSP_FILE
+}
+
 # supported command
 usage() {
   echo -e "Usage: dockernice command args ...
 
 The dockernice commands supported now are:
    run servicetype vsn servicename serviceid // run sometype service in docker container
-   login|attach servicename|serviceid // login docker, execute command interactively
-   exec servicename|serviceid cmd // exec command once in docker non-interactively
-   restart servicename|serviceid // restart docker, equal stop && start
-   start servicename|serviceid // start stopped docker container
-   stop servicename|serviceid // stop running docker container
-   rename oldname newname // change service name, service id no change
-   rm [-y] servicename|serviceid // delete stopped docker container
-   lscron serviceid|servicename // view cron for service
-   commit servicename|serviceid // reimage by running container and push to repohost
+   login|attach serviceid // login docker, execute command interactively
+   exec serviceid cmd // exec command once in docker non-interactively
+   restart serviceid // restart docker, equal stop && start
+   start serviceid // start stopped docker container
+   stop serviceid // stop running docker container
+   rm [-y] serviceid // delete stopped docker container
+   lscron serviceid // view cron for service
+   commit serviceid // reimage by running container and push to repohost
    search [searchpattern] // search images supported by NiceScale, if no pattern, list all
    pull image // pull image from NiceScale
    push image // push image to your own project repo
    images // list cached images and local images
    ps // view all dockers mananged by NiceScale
-   service servicename|serviceid {start|stop|reload|restart|status} // manage service run in docker
+   service serviceid {start|stop|reload|restart|status} // manage service run in docker
 "
 }
 
@@ -60,16 +63,6 @@ get_repo() {
     echo $REPOHOST
   fi
 }
-get_type_by_name() {
-  sname=$1
-  [ -e $SERVICE_DIR/$sname ] || error "servicename $sname not exist"
-  if [ -f $SERVICE_DIR/$sname/admin/service.ini ]; then
-    . $SERVICE_DIR/$sname/admin/service.ini
-    echo $SERVICE_TYPE
-  else
-    error "cannot find file: $SERVICE_DIR/$sname/admin/service.ini"
-  fi
-}
 
 get_type_by_id() {
   sid=$1
@@ -97,24 +90,6 @@ get_vsn_by_id() {
   fi
 }
 
-get_vsn_by_name() {
-  sname=$1
-  [ -L $SERVICE_DIR/$sname ] || error "servicename $sname not exist"
-  if [ -f $SERVICE_DIR/$sname/admin/service.ini ]; then
-    . $SERVICE_DIR/$sname/admin/service.ini
-    echo $SERVICE_VERSION
-  else
-    error "cannot find file: $SERVICE_DIR/$sname/admin/service.ini"
-  fi
-}
-
-get_id_by_name() {
-  sname=$1
-  [ -L $SERVICE_DIR/$sname ] || die "service $sname not exist."
-  [ -f $SERVICE_DIR/$sname/admin/service.ini ] || die "no service.ini for service $sname, maybe deployed failed."
-  cat $SERVICE_DIR/$sname/admin/service.ini|sed -n 's/SERVICE_ID=\(.*\)/\1/p'
-}
-
 get_name_by_id() {
   sid=$1
   [ -d $SERVICE_DIR/$sid ] || die "service $sid not exist."
@@ -123,12 +98,44 @@ get_name_by_id() {
 }
 
 get_cid() {
-  [ -e $SERVICE_DIR/$1 ] || error "serviceid or servicename $1 not exist"
+  [ -e $SERVICE_DIR/$1 ] || error "serviceid $1 not exist"
   if [ -f $SERVICE_DIR/$1/containerid ]; then
     cid=`cat $SERVICE_DIR/$1/containerid`
   else
     return 1
   fi
+}
+
+get_logdir() {
+RUBY=/opt/nicescale/support/bin/ruby
+logdir_ruby="
+require 'fp/node'
+begin
+paths=FP::Vars.get_service_var('$sid', 'path_config', 'meta')
+paths.each_pair { |k, v|
+  if k == "log"; puts v;return v; end
+}
+rescue
+  puts ""
+end
+"
+$RUBY -e "$logdir_ruby"
+}
+
+get_datadir() {
+RUBY=/opt/nicescale/support/bin/ruby
+datadir_ruby="
+require 'fp/node'
+begin
+paths=FP::Vars.get_service_var('$sid', 'path_config', 'meta')
+paths.each_pair { |k, v|
+  if k == "data"; puts v;return v; end
+}
+rescue
+  puts ""
+end
+"
+$RUBY -e "$datadir_ruby"
 }
 
 # servicetype servicevsn servicename serviceid
@@ -138,31 +145,32 @@ dprepare() {
   servicename=$3
   serviceid=$4
   serviceinfo=$SERVICE_DIR/$serviceid/admin/service.ini
+  def_service_log_dir=$SERVICE_DIR/$serviceid/log
+  def_service_data_dir=$SERVICE_DIR/$serviceid/data
 
   if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" -o "x$servicename" = "x" -o "x$serviceid" = "x" ]; then
     usage
     exit 1
   fi
 
-  #if [ -d $SERVICE_DIR/$serviceid -a -L $SERVICE_DIR/$servicename ]; then
+  if nicescale_env; then
+    service_log_dir=`get_logdir`
+    service_data_dir=`get_datadir`
+  fi
+
   if [ -f $serviceinfo ]; then
-    sname=`get_name_by_id $serviceid`
-    [ "$sname" != "$servicename" ] && die "both serviceid $serviceid and servicename $servicename exist, but not match!"
     warn "serviceid $serviceid exists! checking status ..."
-    if [ -f $serviceinfo ]; then
-      . $serviceinfo
-      [ "$DEPLOY_STATUS" = "ok" ] &&
-      echo -e "service $serviceid status: OK, neednot be deployed again.\nIf you want deploy it anyway, please run $0 stop $serviceid && $0 rm $serviceid." &&
+    . $serviceinfo
+    if [ "$DEPLOY_STATUS" = "ok" ]; then
+      echo -e "service $serviceid status: OK, neednot be deployed again."
+      echo -e "if you want deploy it anyway, please run nicedocker stop $serviceid && nicedocker rm $serviceid." 
       exit 0
     fi
     echo "service $serviceid status: no, trying to remove this service and prepare it again ..."
-    dkill $serviceid
+    dkill $serviceid 2>/dev/null
     drm -y $serviceid
-  #elif [ -d $SERVICE_DIR/$serviceid -a ! -L $SERVICE_DIR/$servicename ]; then
-  #  die "serviceid $serviceid existed, but no servicename $servicename"
-  #elif [ ! -d $SERVICE_DIR/$serviceid -a -L $SERVICE_DIR/$servicename ]; then
-  #  die "servicename $servicename existed, but no serviceid $serviceid"
   fi
+
   mkdir -p $SERVICE_DIR/$serviceid
   cd $SERVICE_DIR/$serviceid
   [ -d $SERVICE_DIR/$serviceid/admin ] || mkdir -p $SERVICE_DIR/$serviceid/admin
@@ -181,22 +189,42 @@ dprepare() {
   docker cp $tmp_container:/opt/nicedocker/serviceinfo.ini admin/
   . admin/serviceinfo.ini
   [ ! -z "$conf" ] && docker cp $tmp_container:$conf ./ && mv `basename $conf` conf
-  [ ! -z "$log" ] && docker cp $tmp_container:$log ./ && mv `basename $log` log
-  [ ! -z "$data" ] && docker cp $tmp_container:$data ./ && mv `basename $data` data
+
+  if [ -n "$log" ]; then
+    if [ "$service_log_dir" = $def_service_log_dir ] || [ -z "$service_log_dir" ]; then
+      docker cp $tmp_container:$log ./ && mv `basename $log` log
+    else
+      log_basename=`basename $service_log_dir`
+      [ -d $service_log_dir ] && rmdir $service_log_dir 2>/dev/null
+      log_dirname=`dirname $service_log_dir`
+      docker cp $tmp_container:$log $log_dirname/ &&
+      [ "$log_basename" != `basename $log` ] && mv $log_dirname/`basename $log` $log_dirname/$log_basename
+      ln -s $service_log_dir /services/$serviceid/log
+    fi
+  fi
+
+  if [ -n "$data" ]; then
+    if [ "$service_data_dir" = $def_service_data_dir ] || [ -z "$service_data_dir" ]; then
+      docker cp $tmp_container:$data ./ && mv `basename $data` data
+    else
+      data_basename=`basename $service_data_dir`
+      [ -d $service_data_dir ] && rmdir $service_data_dir 2>/dev/null
+      data_dirname=`dirname $service_data_dir`
+      docker cp $tmp_container:$data $data_dirname/ &&
+      [ "$data_basename" != `basename $data` ] && mv $data_dirname/`basename $data` $data_dirname/$data_basename
+      ln -s $service_data_dir /services/$serviceid/data
+    fi
+  fi
+
   docker cp $tmp_container:/opt/nicedocker/scripts ./
   docker cp $tmp_container:/opt/nicedocker/crontab ./ 2>/dev/null && 
   sed -i "s/\$service_id/$serviceid/g" crontab 2>/dev/null # if no exist, ignore
   docker kill $tmp_container > /dev/null
 
-  ln -s $serviceid $SERVICE_DIR/$servicename
-
   > $serviceinfo
-  #[ ! -d "$SERVICE_DIR/$serviceid/conf" -a ! -z "$conf" ] && mkdir -p $SERVICE_DIR/$serviceid/conf
-  #[ ! -d "$SERVICE_DIR/$serviceid/log" -a ! -z "$log" ] && mkdir -p $SERVICE_DIR/$serviceid/log
-  #[ ! -d "$SERVICE_DIR/$serviceid/data" -a ! -z "$data" ] && mkdir -p $SERVICE_DIR/$serviceid/data
   echo -e "SERVICE_TYPE=$servicetype\nSERVICE_VERSION=$servicevsn" >> $serviceinfo
-  echo -e "SERVICE_NAME=$servicename\nSERVICE_ID=$serviceid" >> $serviceinfo
-  echo "finished preparing for service $servicename"  
+  echo -e "SERVICE_NAME='$servicename'\nSERVICE_ID=$serviceid" >> $serviceinfo
+  echo "finished preparing for service $serviceid"
 }
 
 dcreate() {
@@ -257,7 +285,7 @@ dcreate() {
     dcron_add $serviceid 
     [ $? -ne 0 ] && echo "cron add failed" && exit 1
   fi
-  if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ]; then
+  if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && nicescale_env; then
     sleep 2 && $SERVICE_DIR/$serviceid/scripts/create.sh
     [ $? -ne 0 ] && echo "execute create.sh failed after launching container." && exit 1
   fi
@@ -271,7 +299,7 @@ dservice() {
     usage
     exit 1
   fi
-  [ -e $SERVICE_DIR/$sid ] || die "serviceid or servicename $1 not exist"
+  [ -e $SERVICE_DIR/$sid ] || die "serviceid $1 not exist"
   [ -f $SERVICE_DIR/$sid/containerid ] || die "service $1 containerid file($SERVICE_DIR/$1/containerid) not exist"
 
   if ! is_running $sid; then
@@ -322,11 +350,10 @@ dstop() {
     exit 1
   fi
 
-  [ -e $SERVICE_DIR/$sid ] || die "serviceid or servicename $1 not exist"
+  [ -e $SERVICE_DIR/$sid ] || die "serviceid $1 not exist"
   [ -f $SERVICE_DIR/$sid/containerid ] || die "service $1 containerid file($SERVICE_DIR/$1/containerid) not exist"
   cid=$(cat $SERVICE_DIR/$sid/containerid)
   is_running $sid || warn "service $sid status is stopped, should not be stopped again."
-  get_name_id $sid
   docker ps | grep -wq $sid || exit 0
   dservice $sid stop
   docker kill $cid 
@@ -368,18 +395,6 @@ is_running() {
   return 1
 }
 
-get_name_id() {
-  if [ -L $SERVICE_DIR/$1 ]; then
-    sname=$1
-    sid=`get_id_by_name $sname`
-  elif [ -d $SERVICE_DIR/$1 ]; then
-    sid=$1
-    sname=`get_name_by_id $sid`
-  else
-    error "service $1 not exist"
-  fi
-}
-
 drm() {
   if [ "x$1" = "x" ]; then
     usage
@@ -388,24 +403,22 @@ drm() {
   if [ "x$1" = 'x-y' ]; then
     [ -z "$2" ] && usage && exit 1
     i="y"
-    ssid=$2
+    sid=$2
   else
     i='n'
-    ssid=$1
+    sid=$1
   fi
 
-  [ -e $SERVICE_DIR/$ssid ] || die "service $ssid not exists."
-
-  get_name_id $ssid || error "service id or name not exists."
+  [ -e $SERVICE_DIR/$sid ] || die "service $sid not exists."
 
   get_cid $sid
-  [ ! -z "$cid" ] && is_running $sid && die "service $ssid running, cannot remove"
+  [ ! -z "$cid" ] && is_running $sid && die "service $sid running, cannot remove"
   if [ ! -z "$cid" ]; then
     echo "removing docker container $cid "
     docker rm $cid > /dev/null
   fi
-  [ "$i" = 'y' ] || echo -n "prepare to rm dir $SERVICE_DIR/$sid, which may contains data directory!
-are you sure[Y|n]? "
+  [ "$i" = 'y' ] || echo -n "prepare to remove service $sid, you should backup your data in $SERVICE_DIR/$sid/data/ first!
+are you sure to delete it [Y|n]? "
   while [ 1 ]; do
     [ "$i" = 'y' ] || read i
     [ -z "$i" ] && i='y'
@@ -414,15 +427,25 @@ are you sure[Y|n]? "
     echo -ne "please enter Y or N: "
   done
   if [ "$i" = 'y' -o "$i" = 'Y' ]; then 
+    cd $SERVICE_DIR/$sid
+    if [ -L log ]; then
+      logdir=`ls -l log|sed 's/^l.*-> \(.*\)/\1/'`
+      [ -n "$logdir" -a "$logdir" != "/" -a "$datadir" != "/services" ] &&
+      /bin/rm -fr $logdir
+    fi
+    if [ -L data ]; then
+      datadir=`ls -l data|sed 's/^l.*-> \(.*\)/\1/'`
+      [ -n "$datadir" -a "$datadir" != "/" -a "$datadir" != "/services" ] &&
+      /bin/rm -fr $datadir
+    fi
+    cd /
     [ -z "$sid" ] || /bin/rm -fr $SERVICE_DIR/$sid
-    [ -z "$sname" ] || unlink $SERVICE_DIR/$sname
     dcron_del $sid
-    echo service $ssid removed! 
+    echo service $sid removed! 
   else
-    echo service $ssid stopped, but not removed.
+    echo service $sid stopped, but not removed.
     exit 1
   fi
-  
 }
 
 dattach() {
@@ -443,26 +466,6 @@ dattach() {
       die "unkown status."
   esac
   
-}
-
-drename() {
-  old=$1
-  new=$2
-  get_name_id $old || return 1
-  if [ "x$old" = "x" -o "x$new" = "x" ]; then
-    usage
-    exit 1
-  fi
-  [ -L $SERVICE_DIR/$old ] || die "servicename $old not exist"
-  cd $SERVICE_DIR
-  ln -s $SERVICE_DIR/$(get_id_by_name $old) $new
-  unlink $old
-  serviceinfo=$SERVICE_DIR/$sid/admin/service.ini
-  if [ -f  $serviceinfo ]; then
-    sed -i "s/SERVICE_NAME.*/SERVICE_NAME=$new/" $serviceinfo
-    is_running $new && dexec $new 'kill `ps ax|grep bas[h]|grep rcfile|cut -c1-5`'
-  fi
-  info service name $old changed to $new ok.
 }
 
 dexec() {
@@ -488,7 +491,7 @@ dexec() {
 
 # this  is used for commit image after installed modules to filesystem
 dreimage() {
-  get_name_id $1
+  sid=$1
   get_cid $sid || return 1
   tag=`date +%Y%m%d%H%M`
   repohost=`get_repo`
@@ -554,18 +557,18 @@ dlscron() {
     usage
     exit 1
   fi
-  get_name_id $1
-  [ -L /etc/cron.d/$sid ] || die "no cron for service $1"
+  sid=$1
+  [ ! -L /etc/cron.d/$sid ] && info "no cron for service $1" && exit 0
   cat /etc/cron.d/$sid
 }
 
 if [ "x$1" = "xrun" ]; then
-  dprepare $2 $3 $4 $5 
-  dcreate $2 $3 $4 $5
+  dprepare $2 $3 "$4" $5 
+  dcreate $2 $3 "$4" $5
 elif [ "x$1" = "xprepare" ]; then
-  dprepare $2 $3 $4 $5
+  dprepare $2 $3 "$4" $5
 elif [ "x$1" = "xcreate" ]; then
-  dcreate $2 $3 $4 $5
+  dcreate $2 $3 "$4" $5
 elif [ "x$1" = "xstart" ]; then
   dstart $2
 elif [ "x$1" = "xstop" ]; then
@@ -576,8 +579,6 @@ elif [ "x$1" = "xservice" ]; then
   dservice $2 $3
 elif [ "x$1" = "xrm" ]; then
   drm $2 $3
-elif [ "x$1" = "xrename" ]; then
-  drename $2 $3
 elif [ "x$1" = "xlogin" ]; then
   dattach $2
 elif [ "x$1" = "xattach" ]; then
