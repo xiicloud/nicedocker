@@ -49,8 +49,8 @@ if [ "$distribution" = "Ubuntu" ]; then
     *)
       echo unsupported distribution $version
   esac
-  
-  sed -i 's/#DOCKER_OPTS=.*/DOCKER_OPTS="--storage-driver=devicemapper --iptables=false"/'  /etc/default/docker
+ 
+  #sed -i 's/#DOCKER_OPTS=.*/DOCKER_OPTS="--storage-driver=devicemapper"/' /etc/default/docker
   service lxc-docker restart
 elif [ "$distribution" = "CentOS" ]; then
   version=`head -1 /etc/issue.net |cut -f3 -d' '`
@@ -59,7 +59,7 @@ elif [ "$distribution" = "CentOS" ]; then
   wget http://epel.mirror.net.in/epel/6/i386/epel-release-6-8.noarch.rpm &&
   rpm -ivh epel-release-6-8.noarch.rpm
   yum -y install docker-io
-  sed -i 's/other_args=.*/other_args="--selinux-enabled --iptables=false"/' /etc/sysconfig/docker
+  sed -i 's/other_args=.*/other_args="--selinux-enabled"/' /etc/sysconfig/docker
   service docker restart
   chkconfig docker on
 else
