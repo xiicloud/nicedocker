@@ -113,10 +113,10 @@ require 'fp/node'
 begin
 paths=FP::Vars.get_service_var('$sid', 'path_config', 'meta')
 paths.each_pair { |k, v|
-  if k == "log"; puts v;return v; end
+  if k == 'log'; puts v;return v; end
 }
 rescue
-  puts ""
+  puts ''
 end
 "
 $RUBY -e "$logdir_ruby"
@@ -129,10 +129,10 @@ require 'fp/node'
 begin
 paths=FP::Vars.get_service_var('$sid', 'path_config', 'meta')
 paths.each_pair { |k, v|
-  if k == "data"; puts v;return v; end
+  if k == 'data'; puts v;return v; end
 }
 rescue
-  puts ""
+  puts ''
 end
 "
 $RUBY -e "$datadir_ruby"
