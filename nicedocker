@@ -111,7 +111,7 @@ RUBY=/opt/nicescale/support/bin/ruby
 logdir_ruby="
 require 'fp/node'
 begin
-paths=FP::Vars.get_service_var('$sid', 'path_config', 'meta')
+paths=FP::Vars.get_service_var('$serviceid', 'path_config', 'meta')
 paths.each_pair { |k, v|
   if k == 'log'; puts v;return v; end
 }
@@ -127,7 +127,7 @@ RUBY=/opt/nicescale/support/bin/ruby
 datadir_ruby="
 require 'fp/node'
 begin
-paths=FP::Vars.get_service_var('$sid', 'path_config', 'meta')
+paths=FP::Vars.get_service_var('$serviceid', 'path_config', 'meta')
 paths.each_pair { |k, v|
   if k == 'data'; puts v;return v; end
 }
