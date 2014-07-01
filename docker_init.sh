@@ -11,7 +11,7 @@ NICESCALEDIR=/opt/nicescale/support
 [ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 #[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 
-SERVICE_TYPES="mysql redis memcached apache_php haproxy tomcat percona-mysql"
+SERVICE_TYPES="redis memcached apache_php haproxy tomcat percona-mysql"
 CSP_FILE=/etc/.fp/csp.conf
 REPOHOST=nicedocker.com
 get_repo() {
@@ -87,7 +87,8 @@ done
 [ ! -z "$WDIR" ] && [ "$WDIR" != "/" ] && [ `dirname $WDIR` = "/tmp" ] && rm -fr $WDIR
 [ $distribution = "Ubuntu" -a $version = "12" ] &&
 echo "Ubuntu 12.04 should reboot for new kernel."
-echo "docker and images ready now."
 #echo rebooting after 10 seconds ....
 #sleep 10
 #reboot
+echo "docker and images ready now."
+

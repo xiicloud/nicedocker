@@ -22,7 +22,6 @@ The dockernice commands supported now are:
    start serviceid // start stopped docker container
    stop serviceid // stop running docker container
    rm [-y] serviceid // delete stopped docker container
-   lscron serviceid // view cron for service
    commit serviceid // reimage by running container and push to repohost
    search [searchpattern] // search images supported by NiceScale, if no pattern, list all
    pull image // pull image from NiceScale
@@ -186,8 +185,8 @@ dprepare() {
     (( count++ ))
     docker ps|grep -q $tmp_container && break
   done
-  docker cp $tmp_container:/opt/nicedocker/serviceinfo.ini admin/
-  . admin/serviceinfo.ini
+  docker cp $tmp_container:/opt/nicedocker/path.ini admin/
+  . admin/path.ini
   [ ! -z "$conf" ] && docker cp $tmp_container:$conf ./ && mv `basename $conf` conf
 
   if [ -n "$log" ]; then
@@ -216,9 +215,7 @@ dprepare() {
     fi
   fi
 
-  docker cp $tmp_container:/opt/nicedocker/scripts ./
-  docker cp $tmp_container:/opt/nicedocker/crontab ./ 2>/dev/null && 
-  sed -i "s/\$service_id/$serviceid/g" crontab 2>/dev/null # if no exist, ignore
+  docker cp $tmp_container:/opt/nicedocker/scripts ./ 2>/dev/null
   docker kill $tmp_container > /dev/null
 
   > $serviceinfo
@@ -254,7 +251,7 @@ dcreate() {
     error "unknow return value of is_running"
   fi
 
-  . $SERVICE_DIR/$serviceid/admin/serviceinfo.ini
+  . $SERVICE_DIR/$serviceid/admin/path.ini
   volume=
   [ ! -z $conf ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf "$volume
   [ ! -z $log ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
@@ -269,11 +266,10 @@ dcreate() {
     image=$repohost:5000/nicescale/$servicetype:$servicevsn
   #fi
 
-  docker run -itd --cidfile=$SERVICE_DIR/$serviceid/containerid \
-                --name $serviceid $volume --net=host \
-                -v "$SERVICE_DIR/$serviceid/admin:/opt/nicedocker" \
-                -v "/dev/log:/dev/log" \
-                -e "NICESCALE=1" $image
+  docker run -d --cidfile=$SERVICE_DIR/$serviceid/containerid \
+             --name $serviceid $volume --net=host \
+             -v "/dev/log:/dev/log" \
+             -e "NICESCALE=1" $image
   es=$?
   if [ $es -eq 0 ]; then
     echo "DEPLOY_STATUS=ok" >> $serviceinfo
@@ -281,13 +277,10 @@ dcreate() {
     echo "DEPLOY_STATUS=no" >> $serviceinfo
   fi
   [ $es -ne 0 ] && exit $es
-  if [ -f $SERVICE_DIR/$serviceid/crontab ]; then
-    dcron_add $serviceid 
-    [ $? -ne 0 ] && echo "cron add failed" && exit 1
-  fi
   if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && nicescale_env; then
-    sleep 2 && $SERVICE_DIR/$serviceid/scripts/create.sh
-    [ $? -ne 0 ] && echo "execute create.sh failed after launching container." && exit 1
+    sleep 0.5 && $SERVICE_DIR/$serviceid/scripts/create.sh
+    [ $? -ne 0 ] && echo "execute create.sh failed after launching container." && 
+    sed -i 's/DEPLOY_STATUS=ok/DEPLOY_STATUS=no/' $serviceinfo && exit 1
   fi
   exit 0
 }
@@ -302,28 +295,27 @@ dservice() {
   [ -e $SERVICE_DIR/$sid ] || die "serviceid $1 not exist"
   [ -f $SERVICE_DIR/$sid/containerid ] || die "service $1 containerid file($SERVICE_DIR/$1/containerid) not exist"
 
-  if ! is_running $sid; then
-    echo "docker container of service $sid must be start first"
-    exit 1
-  fi
+  get_cid $sid
+
   case "$action" in
   start)
-    $SERVICE_DIR/$sid/scripts/start.sh
+    if [ -x $SERVICE_DIR/$sid/scripts/start.sh ]; then $SERVICE_DIR/$sid/scripts/start.sh
+    else docker start $cid; fi
     ;;
   stop)
-    $SERVICE_DIR/$sid/scripts/stop.sh
+    if [ -x $SERVICE_DIR/$sid/scripts/stop.sh ]; then $SERVICE_DIR/$sid/scripts/stop.sh
+    else docker stop $cid; fi
     ;;
   reload)
-    $SERVICE_DIR/$sid/scripts/reload.sh
+    if [ -x $SERVICE_DIR/$sid/scripts/reload.sh ]; then $SERVICE_DIR/$sid/scripts/reload.sh
+    else docker restart $cid; fi
     ;;
   restart)
-    $SERVICE_DIR/$sid/scripts/restart.sh
-    ;;
-  status)
-    $SERVICE_DIR/$sid/scripts/status.sh
+    if [ -x $SERVICE_DIR/$sid/scripts/restart.sh ]; then $SERVICE_DIR/$sid/scripts/restart.sh
+    else docker restart $cid; fi
     ;;
   *)
-    echo "Usage: $0 service $sid {start|stop|restart|reload|status}" >&2
+    echo "Usage: $0 service $sid {start|stop|restart|reload}" >&2
     exit 1
     ;;
   esac
@@ -355,8 +347,7 @@ dstop() {
   cid=$(cat $SERVICE_DIR/$sid/containerid)
   is_running $sid || warn "service $sid status is stopped, should not be stopped again."
   docker ps | grep -wq $sid || exit 0
-  dservice $sid stop
-  docker kill $cid 
+  docker stop $cid 
 }
 
 dkill() {
@@ -440,7 +431,6 @@ are you sure to delete it [Y|n]? "
     fi
     cd /
     [ -z "$sid" ] || /bin/rm -fr $SERVICE_DIR/$sid
-    dcron_del $sid
     echo service $sid removed! 
   else
     echo service $sid stopped, but not removed.
@@ -454,7 +444,7 @@ dattach() {
   is_running $sid
   case "$?" in
     0)
-      docker attach $cid
+      dexec $sid bash
       ;;
     1)
       die "service $sid no running."
@@ -539,29 +529,6 @@ dps() {
   done
 }
 
-dcron_add() {
-  sid=$1
-  service_cronfile=$SERVICE_DIR/$sid/crontab
-  [ -f $service_cronfile ] || return 0
-  [ -d /etc/cron.d ] || error "no /etc/cron.d directory!"
-  ln -sf $service_cronfile /etc/cron.d/$sid
-  return 0
-}
-dcron_del() {
-  sid=$1
-  [ -L /etc/cron.d/$sid ] && unlink /etc/cron.d/$sid
-  return 0
-}
-dlscron() {
-  if [ -z "$1" ]; then
-    usage
-    exit 1
-  fi
-  sid=$1
-  [ ! -L /etc/cron.d/$sid ] && info "no cron for service $1" && exit 0
-  cat /etc/cron.d/$sid
-}
-
 if [ "x$1" = "xrun" ]; then
   dprepare $2 $3 "$4" $5 
   dcreate $2 $3 "$4" $5
@@ -604,8 +571,6 @@ elif [ "x$1" = "xps" ]; then
   dps
 elif [ "x$1" = "xkill" ]; then
   dkill $2
-elif [ "x$1" = "xlscron" ]; then
-  dlscron $2
 else
   [ ! -z $1 ] && error "Invalid command $1!"
   usage
