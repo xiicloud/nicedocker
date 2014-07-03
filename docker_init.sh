@@ -19,7 +19,7 @@ get_repo() {
   local region
   if [ -f $CSP_FILE ]; then
     . $CSP_FILE
-    echo $region.$name.$REPOHOST
+    echo $DOCKER_HOST
   else
     echo $REPOHOST
   fi
