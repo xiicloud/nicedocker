@@ -79,9 +79,12 @@ ln -sf $NICESCALEDIR/bin/nsexec /usr/local/bin/nsexec
 
 repohost=`get_repo`
 for s in $SERVICE_TYPES; do
-  docker pull $repohost:5000/nicescale/$s
+  if [ "$NATION" = "CN" ]; then
+    docker pull $repohost:5000/nicescale/$s
+  else
+    docker pull nicescale/$s
+  fi
 done
-
 
 # make sure no remove root forever!
 [ ! -z "$WDIR" ] && [ "$WDIR" != "/" ] && [ `dirname $WDIR` = "/tmp" ] && rm -fr $WDIR
