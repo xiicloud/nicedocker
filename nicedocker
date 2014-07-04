@@ -319,6 +319,7 @@ dservice() {
     elif docker ps|grep -q $sid; then echo Service $sid is running.
     else echo Service $sid is stopped. && exit 1
     fi
+    ;;
   *)
     echo "Usage: $0 service $sid {start|stop|restart|reload}" >&2
     exit 1
