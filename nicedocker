@@ -278,7 +278,7 @@ dcreate() {
   fi
   [ $es -ne 0 ] && exit $es
   if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && nicescale_env; then
-    sleep 0.5 && $SERVICE_DIR/$serviceid/scripts/create.sh
+    $SERVICE_DIR/$serviceid/scripts/create.sh
     [ $? -ne 0 ] && echo "execute create.sh failed after launching container." && 
     sed -i 's/DEPLOY_STATUS=ok/DEPLOY_STATUS=no/' $serviceinfo && exit 1
   fi
@@ -427,7 +427,7 @@ are you sure to delete it [Y|n]? "
     cd $SERVICE_DIR/$sid
     if [ -L log ]; then
       logdir=`ls -l log|sed 's/^l.*-> \(.*\)/\1/'`
-      [ -n "$logdir" -a "$logdir" != "/" -a "$datadir" != "/services" ] &&
+      [ -n "$logdir" -a "$logdir" != "/" -a "$logdir" != "/services" ] &&
       /bin/rm -fr $logdir
     fi
     if [ -L data ]; then
