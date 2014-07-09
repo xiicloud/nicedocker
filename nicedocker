@@ -253,9 +253,14 @@ dcreate() {
 
   . $SERVICE_DIR/$serviceid/admin/path.ini
   volume=
-  [ ! -z $conf ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf "$volume
-  [ ! -z $log ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
-  [ ! -z $data ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
+  [ ! -z "$conf" ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf "$volume
+  [ ! -z "$log" ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
+  [ ! -z "$data" ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
+
+  envvar=
+  [ ! -z "$conf" ] && envvar="-e CONF_DIR=$conf "$envvar
+  [ ! -z "$log" ] && envvar="-e LOG_DIR=$log "$envvar
+  [ ! -z "$data" ] && envvar="-e DATA_DIR=$data "$envvar
 
   repohost=`get_repo`
   #prj_id=abcdefg
@@ -269,7 +274,7 @@ dcreate() {
   docker run -d --cidfile=$SERVICE_DIR/$serviceid/containerid \
              --name $serviceid $volume --net=host \
              -v "/dev/log:/dev/log" \
-             -e "NICESCALE=1" $image
+             -e "NICESCALE=1" $envvar $image
   es=$?
   if [ $es -eq 0 ]; then
     echo "DEPLOY_STATUS=ok" >> $serviceinfo
