@@ -3,8 +3,7 @@
 SERVICE_DIR=/services
 [ -d $SERVICE_DIR ] || mkdir $SERVICE_DIR
 CSP_FILE=/etc/.fp/csp.conf
-#REPOHOST=nicedocker.com
-REPOHOST=127.0.0.1
+REPOHOST=nicedocker.com
 [ -d /opt/nicescale/support/etc ] || mkdir -p /opt/nicescale/support/etc
 
 nicescale_env() {
