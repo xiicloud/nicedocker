@@ -3,7 +3,8 @@
 SERVICE_DIR=/services
 [ -d $SERVICE_DIR ] || mkdir $SERVICE_DIR
 CSP_FILE=/etc/.fp/csp.conf
-REPOHOST=nicedocker.com
+#REPOHOST=nicedocker.com
+REPOHOST=127.0.0.1
 [ -d /opt/nicescale/support/etc ] || mkdir -p /opt/nicescale/support/etc
 
 nicescale_env() {
@@ -12,7 +13,7 @@ nicescale_env() {
 
 # supported command
 usage() {
-  echo -e "Usage: dockernice command args ...
+  echo -e "Usage: $0 command args ...
 
 The dockernice commands supported now are:
    run servicetype vsn servicename serviceid // run sometype service in docker container
@@ -21,14 +22,14 @@ The dockernice commands supported now are:
    restart serviceid // restart docker, equal stop && start
    start serviceid // start stopped docker container
    stop serviceid // stop running docker container
-   rm [-y] serviceid // delete stopped docker container
+   rm serviceid // delete stopped docker container, no purge data
    commit serviceid // reimage by running container and push to repohost
    search [searchpattern] // search images supported by NiceScale, if no pattern, list all
    pull image // pull image from NiceScale
    push image // push image to your own project repo
    images // list cached images and local images
    ps // view all dockers mananged by NiceScale
-   service serviceid {start|stop|reload|restart|status} // manage service run in docker
+   service serviceid {start|stop|reload|restart|status|destroy} // manage service run in docker
 "
 }
 
@@ -96,15 +97,6 @@ get_name_by_id() {
   cat $SERVICE_DIR/$sid/admin/service.ini|sed -n 's/SERVICE_NAME=\(.*\)/\1/p'
 }
 
-get_cid() {
-  [ -e $SERVICE_DIR/$1 ] || error "serviceid $1 not exist"
-  if [ -f $SERVICE_DIR/$1/containerid ]; then
-    cid=`cat $SERVICE_DIR/$1/containerid`
-  else
-    return 1
-  fi
-}
-
 get_logdir() {
 RUBY=/opt/nicescale/support/bin/ruby
 logdir_ruby="
@@ -167,7 +159,7 @@ dprepare() {
     fi
     echo "service $serviceid status: no, trying to remove this service and prepare it again ..."
     dkill $serviceid 2>/dev/null
-    drm -y $serviceid
+    service_destroy $serviceid
   fi
 
   mkdir -p $SERVICE_DIR/$serviceid
@@ -182,8 +174,9 @@ dprepare() {
   count=0
   while [ $count -lt 25 ]; do
     sleep 0.2
-    (( count++ ))
-    docker ps|grep -q $tmp_container && break
+    (( count ++ )) 
+    if docker ps|grep -q $tmp_container; then break
+    else true; fi
   done
   docker cp $tmp_container:/opt/nicedocker/path.ini admin/
   . admin/path.ini
@@ -220,8 +213,14 @@ dprepare() {
 
   > $serviceinfo
   echo -e "SERVICE_TYPE=$servicetype\nSERVICE_VERSION=$servicevsn" >> $serviceinfo
-  echo -e "SERVICE_NAME='$servicename'\nSERVICE_ID=$serviceid" >> $serviceinfo
+  echo -e "SERVICE_NAME=$servicename\nSERVICE_ID=$serviceid" >> $serviceinfo
   echo "finished preparing for service $serviceid"
+}
+
+service_exist() {
+  sid=$1
+  [ -d $SERVICE_DIR/$sid ] && docker ps --all|grep -q -w $sid && return 0
+  return 1
 }
 
 dcreate() {
@@ -237,27 +236,17 @@ dcreate() {
   fi
 
   [ -d $SERVICE_DIR/$serviceid ] || die "no serviceid directory:$SERVICE_DIR/$serviceid, forget prepare?"
-  is_running $serviceid
-  es=$?
-  if [ $es -eq 0 ]; then
-    warn "service $serviceid is running."
-    return 0
-  elif [ $es -eq 1 ]; then
-    warn "service $serviceid exists,not running."
-    return 0
-  elif [ $es -eq 2 ]; then
-    :
-  else
-    error "unknow return value of is_running"
-  fi
+  is_running $serviceid && warn "service $serviceid is running." && return 0
+  service_exist $serviceid && warn "service $serviceid already exist." && return 0
 
   . $SERVICE_DIR/$serviceid/admin/path.ini
-  volume=
+  volume="-v /dev/log:/dev/log"
   [ ! -z "$conf" ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf "$volume
   [ ! -z "$log" ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
   [ ! -z "$data" ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
 
   envvar=
+  nicescale_env && envvar="-e NICESCALE=1"
   [ ! -z "$conf" ] && envvar="-e CONF_DIR=$conf "$envvar
   [ ! -z "$log" ] && envvar="-e LOG_DIR=$log "$envvar
   [ ! -z "$data" ] && envvar="-e DATA_DIR=$data "$envvar
@@ -271,10 +260,39 @@ dcreate() {
     image=$repohost:5000/nicescale/$servicetype:$servicevsn
   #fi
 
-  docker run -d --cidfile=$SERVICE_DIR/$serviceid/containerid \
-             --name $serviceid $volume --net=host \
-             -v "/dev/log:/dev/log" \
-             -e "NICESCALE=1" $envvar $image
+  get_process_mgt
+  if [ "$process_mgt" = "initctl" ]; then
+cat <<EOF > /etc/init/docker-${sid}.conf
+description "Docker Service $sid"
+
+start on started docker
+stop on stopping docker
+
+respawn
+respawn limit 20 5
+
+script
+  docker start $sid 2>/dev/null ||
+  docker run -d --name $serviceid --net=host $volume $envvar $image
+  /opt/nicescale/support/bin/cfagent prjenv-add $sid
+  docker wait $sid
+end script
+
+post-stop script
+  /opt/nicescale/support/bin/cfagent prjenv-del $sid
+  if [ -x $SERVICE_DIR/$sid/scripts/stop.sh ]; then $SERVICE_DIR/$sid/scripts/stop.sh
+  else docker stop $sid; fi
+end script
+EOF
+
+  $process_mgt start docker-$sid
+
+  elif [ "$process_mgt" = "systemctl" ]; then
+    echo preparing to support systemd
+  else
+    echo "unsupported process manage tool."
+  fi
+
   es=$?
   if [ $es -eq 0 ]; then
     echo "DEPLOY_STATUS=ok" >> $serviceinfo
@@ -298,26 +316,43 @@ dservice() {
     exit 1
   fi
   [ -e $SERVICE_DIR/$sid ] || die "serviceid $1 not exist"
-  [ -f $SERVICE_DIR/$sid/containerid ] || die "service $1 containerid file($SERVICE_DIR/$1/containerid) not exist"
 
-  get_cid $sid
+  get_process_mgt
 
   case "$action" in
   start)
-    if [ -x $SERVICE_DIR/$sid/scripts/start.sh ]; then $SERVICE_DIR/$sid/scripts/start.sh
-    else docker start $cid; fi
+    output=`$process_mgt status docker-$sid`
+    if echo $output|grep -q -v running; then
+      $process_mgt start docker-$sid
+    else
+      echo $output
+    fi
     ;;
   stop)
-    if [ -x $SERVICE_DIR/$sid/scripts/stop.sh ]; then $SERVICE_DIR/$sid/scripts/stop.sh
-    else docker stop $cid; fi
+    output=`$process_mgt status docker-$sid`
+    if echo $output|grep -q running; then
+      $process_mgt stop docker-$sid
+    else
+      echo $output
+    fi
     ;;
   reload)
-    if [ -x $SERVICE_DIR/$sid/scripts/reload.sh ]; then $SERVICE_DIR/$sid/scripts/reload.sh
-    else docker restart $cid; fi
+    output=`$process_mgt status docker-$sid`
+    if [ -x $SERVICE_DIR/$sid/scripts/reload.sh ]; then
+      $SERVICE_DIR/$sid/scripts/reload.sh
+    elif echo $output|grep -q running; then
+      $process_mgt restart docker-$sid
+    else
+      $process_mgt start docker-$sid
+    fi
     ;;
   restart)
-    if [ -x $SERVICE_DIR/$sid/scripts/restart.sh ]; then $SERVICE_DIR/$sid/scripts/restart.sh
-    else docker restart $cid; fi
+    output=`$process_mgt status docker-$sid`
+    if echo $output|grep -q running; then
+      $process_mgt restart docker-$sid
+    else
+      $process_mgt start docker-$sid
+    fi
     ;;
   status)
     if [ -x $SERVICE_DIR/$sid/scripts/status.sh ]; then $SERVICE_DIR/$sid/scripts/status.sh
@@ -325,8 +360,11 @@ dservice() {
     else echo Service $sid is stopped. && exit 1
     fi
     ;;
+  destroy)
+    service_destroy $sid
+    ;;
   *)
-    echo "Usage: $0 service $sid {start|stop|restart|reload}" >&2
+    echo "Usage: $0 service $sid {start|stop|restart|reload|status|destroy}" >&2
     exit 1
     ;;
   esac
@@ -340,10 +378,8 @@ dstart() {
   fi
 
   [ -e $SERVICE_DIR/$sid ] || die "service $1 not exist"
-  [ -f $SERVICE_DIR/$sid/containerid ] || die "service $1 no containerid file"
-  cid=$(cat $SERVICE_DIR/$sid/containerid)
 
-  docker start $cid
+  docker start $sid
 }
 
 dstop() {
@@ -354,11 +390,9 @@ dstop() {
   fi
 
   [ -e $SERVICE_DIR/$sid ] || die "serviceid $1 not exist"
-  [ -f $SERVICE_DIR/$sid/containerid ] || die "service $1 containerid file($SERVICE_DIR/$1/containerid) not exist"
-  cid=$(cat $SERVICE_DIR/$sid/containerid)
   is_running $sid || warn "service $sid status is stopped, should not be stopped again."
   docker ps | grep -wq $sid || exit 0
-  docker stop $cid 
+  docker stop $sid 
 }
 
 dkill() {
@@ -368,13 +402,8 @@ dkill() {
     exit 1
   fi
   [ -e $SERVICE_DIR/$sid ] || die "service $1 not exist"
-  if [ ! -f $SERVICE_DIR/$sid/containerid ]; then
-    warn "service $1 no containerid file"
-    return 1
-  fi
-  cid=$(cat $SERVICE_DIR/$sid/containerid)
   if is_running $sid; then
-    docker kill $cid
+    docker kill $sid
   else
     warn "service $sid status is stopped, should not be killed again."
   fi
@@ -389,45 +418,35 @@ drestart() {
 
 is_running() {
   sid=$1
-  get_cid $sid
-  [ -z "$cid" ] && return 2
-  if docker ps --no-trunc|grep -q "$cid"; then
+  if docker ps --no-trunc|grep -q -w "$sid"; then
     return 0
   fi
   return 1
 }
 
 drm() {
-  if [ "x$1" = "x" ]; then
+  sid=$1
+  if [ "x$sid" = "x" ]; then
     usage
     exit 1
   fi
-  if [ "x$1" = 'x-y' ]; then
-    [ -z "$2" ] && usage && exit 1
-    i="y"
-    sid=$2
-  else
-    i='n'
-    sid=$1
-  fi
+
+  docker rm $sid 
+}
+
+service_destroy() {
+  sid=$1
 
   [ -e $SERVICE_DIR/$sid ] || die "service $sid not exists."
 
-  get_cid $sid
-  [ ! -z "$cid" ] && is_running $sid && die "service $sid running, cannot remove"
-  if [ ! -z "$cid" ]; then
-    echo "removing docker container $cid "
-    docker rm $cid > /dev/null
-  fi
-  [ "$i" = 'y' ] || echo -n "prepare to remove service $sid, you should backup your data in $SERVICE_DIR/$sid/data/ first!
-are you sure to delete it [Y|n]? "
-  while [ 1 ]; do
-    [ "$i" = 'y' ] || read i
-    [ -z "$i" ] && i='y'
-    [ "$i" = 'y' -o "$i" = 'Y' ] && break
-    [ "$i" = 'n' -o "$i" = 'N' ] && exit
-    echo -ne "please enter Y or N: "
-  done
+  is_running $sid && die "service $sid running, cannot remove"
+
+  [ -f /etc/init/docker-$sid.conf ] && rm -f /etc/init/docker-$sid.conf
+
+  echo "removing docker container $sid "
+  docker rm $sid > /dev/null
+
+  i=y
   if [ "$i" = 'y' -o "$i" = 'Y' ]; then 
     cd $SERVICE_DIR/$sid
     if [ -L log ]; then
@@ -451,7 +470,6 @@ are you sure to delete it [Y|n]? "
 
 dattach() {
   sid=$1
-  get_cid $sid
   is_running $sid
   case "$?" in
     0)
@@ -475,10 +493,8 @@ dexec() {
     usage
     exit 1
   fi
-  get_cid $sid
-  [ -z "$cid" ] && die "service $sid no container"
   is_running $sid || die "service $sid no run."
-  PID=`docker top $cid|awk '{print $2}'|head -2|tail -1`
+  PID=`docker top $sid|awk '{print $2}'|head -2|tail -1`
   [ -e /usr/local/bin/nsexec ] || die "no nsexec command."
 
   count=$(($# + 1 ))
@@ -493,10 +509,9 @@ dexec() {
 # this  is used for commit image after installed modules to filesystem
 dreimage() {
   sid=$1
-  get_cid $sid || return 1
   tag=`date +%Y%m%d%H%M`
   repohost=`get_repo`
-  docker commit $cid $repohost:5000/$prj_id/$sid:$tag
+  docker commit $sid $repohost:5000/$prj_id/$sid:$tag
   docker push $repohost:5000/$prj_id/$sid:$tag
   docker tag $repohost:5000/$prj_id/$sid:$tag $repohost:5000/$prj_id/$sid:latest
   docker push $repohost:5000/$prj_id/$sid:latest
@@ -521,23 +536,78 @@ dpush() {
 
 dps() {
   #tabs -8
-  echo -e "cid\t\tsid\t\t\t  sname\t\tsip\t\tstype\t\trunning"
+  echo -e "sid\t\t\t  sname\t\tsip\t\tstype\t\trunning"
   cd $SERVICE_DIR
   for sid in `ls -l|grep -v admin|grep ^d|awk '{print $9}'`; do
-    get_cid $sid 2>/dev/null
-    [ -z "$cid" ] && cid="unknown"
     running=no
-    if docker ps --no-trunc|grep -q $cid; then
+    if docker ps --no-trunc|grep -q $sid; then
       running=yes
-    elif docker ps --no-trunc --all|grep -q $cid; then
+    elif docker ps --no-trunc --all|grep -q $sid; then
       running=no
     else
       running=deleted
     fi
-    ipaddr=`docker inspect $cid 2>/dev/null|grep IPAddress|sed -n "s/.*\"\([0-9].*[0-9]\)\".*/\1/p"`
+    ipaddr=`docker inspect $sid 2>/dev/null|grep IPAddress|sed -n "s/.*\"\([0-9].*[0-9]\)\".*/\1/p"`
     [ -z $ipaddr ] && ipaddr='N/A\t'
-    echo -e "${cid:0:12}\t$sid  `get_name_by_id $sid`\t$ipaddr\t`get_type_by_id $sid`:`get_vsn_by_id $sid`\t$running"
+    echo -e "$sid  `get_name_by_id $sid`\t$ipaddr\t`get_type_by_id $sid`:`get_vsn_by_id $sid`\t$running"
   done
+}
+
+rpm_or_dpkg() {
+  if [ -e /etc/apt/sources.list ]; then
+    echo dpkg
+  elif which rpm > /dev/null; then
+    echo rpm
+  else
+    echo unsupported
+  fi
+}
+get_process_mgt() {
+  pack=`rpm_or_dpkg`
+  process_mgt=
+  if [ "$pack" = "rpm" ]; then
+    if rpm -qf /sbin/init|grep -q -i systemd; then process_mgt=systemctl
+    else process_mgt=initctl
+    fi
+  elif [ "$pack" = "dpkg" ]; then
+    if dpkg -S /sbin/init|grep -q -i systemd; then process_mgt=systemctl
+    else process_mgt=initctl
+    fi
+  else
+    echo unknown
+  fi
+}
+dupstart() {
+  sid=$1
+  cat <<EOF > /etc/init/docker-${sid}.conf
+description "Docker Service $sid"
+
+start on started docker
+stop on stopping docker
+
+respawn limit 20 5
+
+script
+  /usr/local/bin/nicedocker start $sid &&
+  /opt/nicescale/support/bin/cfagent prjenv-add $sid
+end script
+
+pre-stop script
+  /opt/nicescale/support/bin/cfagent prjenv-del $sid &&
+  /usr/local/bin/nicedocker service $sid stop
+end script
+EOF
+}
+
+service_register() {
+  PRO_MGT=`get_process_mgt`
+  if [ "$PRO_MGT" = "upstart" ]; then
+    dupstart $1
+  elif [ "$PRO_MGT" = "systemd" ]; then
+    echo
+  else
+    echo "unsupported process manage tool."
+  fi
 }
 
 if [ "x$1" = "xrun" ]; then
