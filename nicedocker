@@ -271,6 +271,14 @@ respawn
 respawn limit 20 5
 
 script
+  count=0
+  while [ $count -lt 100 ]; do
+    sleep 0.1
+    [ -e /var/run/docker.sock ] && break
+    count=$((count+1))
+  done
+  [ $count -eq 100 ] && echo "no docker server running." && exit 1
+
   docker start $sid 2>/dev/null ||
   docker run -d --name $serviceid --net=host $volume $envvar $image
   /opt/nicescale/support/bin/cfagent prjenv-add $sid
