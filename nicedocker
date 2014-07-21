@@ -273,8 +273,8 @@ respawn limit 20 5
 script
   count=0
   while [ $count -lt 100 ]; do
-    sleep 0.1
-    [ -e /var/run/docker.sock ] && break
+    sleep 0.2
+    docker ps > /dev/null 2>&1 && break
     count=$((count+1))
   done
   [ $count -eq 100 ] && echo "no docker server running." && exit 1
