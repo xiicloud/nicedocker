@@ -337,12 +337,12 @@ dservice() {
     ;;
   reload)
     output=`$process_mgt status docker-$sid`
-    if [ -x $SERVICE_DIR/$sid/scripts/reload.sh ]; then
-      $SERVICE_DIR/$sid/scripts/reload.sh
-    elif echo $output|grep -q running; then
-      $process_mgt restart docker-$sid
-    else
+    if echo $output|grep -q -v running; then
       $process_mgt start docker-$sid
+    elif [ -x $SERVICE_DIR/$sid/scripts/reload.sh ]; then
+      $SERVICE_DIR/$sid/scripts/reload.sh
+    else
+      $process_mgt restart docker-$sid
     fi
     ;;
   restart)
