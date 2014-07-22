@@ -451,31 +451,26 @@ service_destroy() {
 
   is_running $sid && die "service $sid running, cannot remove"
 
-  [ -f /etc/init/docker-$sid.conf ] && rm -f /etc/init/docker-$sid.conf
 
   echo "removing docker container $sid "
-  docker rm $sid > /dev/null
+  docker rm $sid || exit 1
 
-  i=y
-  if [ "$i" = 'y' -o "$i" = 'Y' ]; then 
-    cd $SERVICE_DIR/$sid
-    if [ -L log ]; then
-      logdir=`ls -l log|sed 's/^l.*-> \(.*\)/\1/'`
-      [ -n "$logdir" -a "$logdir" != "/" -a "$logdir" != "/services" ] &&
-      /bin/rm -fr $logdir
-    fi
-    if [ -L data ]; then
-      datadir=`ls -l data|sed 's/^l.*-> \(.*\)/\1/'`
-      [ -n "$datadir" -a "$datadir" != "/" -a "$datadir" != "/services" ] &&
-      /bin/rm -fr $datadir
-    fi
-    cd /
-    [ -z "$sid" ] || /bin/rm -fr $SERVICE_DIR/$sid
-    echo service $sid removed! 
-  else
-    echo service $sid stopped, but not removed.
-    exit 1
+  [ -f /etc/init/docker-$sid.conf ] && rm -f /etc/init/docker-$sid.conf
+
+  cd $SERVICE_DIR/$sid
+  if [ -L log ]; then
+    logdir=`ls -l log|sed 's/^l.*-> \(.*\)/\1/'`
+    [ -n "$logdir" -a "$logdir" != "/" -a "$logdir" != "/services" ] &&
+    /bin/rm -fr $logdir
   fi
+  if [ -L data ]; then
+    datadir=`ls -l data|sed 's/^l.*-> \(.*\)/\1/'`
+    [ -n "$datadir" -a "$datadir" != "/" -a "$datadir" != "/services" ] &&
+    /bin/rm -fr $datadir
+  fi
+  cd /
+  [ -z "$sid" ] || /bin/rm -fr $SERVICE_DIR/$sid
+  echo service $sid removed! 
 }
 
 dattach() {
