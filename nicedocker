@@ -453,7 +453,10 @@ service_destroy() {
 
 
   echo "removing docker container $sid "
-  docker rm $sid || exit 1
+  if ! docker rm $sid 2>/dev/null; then
+    sleep 2
+    docker rm $sid 2>/dev/null
+  fi
 
   [ -f /etc/init/docker-$sid.conf ] && rm -f /etc/init/docker-$sid.conf
 
