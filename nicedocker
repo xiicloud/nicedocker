@@ -235,7 +235,7 @@ dcreate() {
   fi
 
   [ -d $SERVICE_DIR/$serviceid ] || die "no serviceid directory:$SERVICE_DIR/$serviceid, forget prepare?"
-  is_running $serviceid && warn "service $serviceid is running." && return 0
+  #is_running $serviceid && warn "service $serviceid is running." && return 0
   service_exist $serviceid && warn "service $serviceid already exist." && return 0
 
   . $SERVICE_DIR/$serviceid/admin/path.ini
@@ -292,6 +292,7 @@ post-stop script
 end script
 EOF
 
+  $process_mgt status docker-$sid|grep -q running ||
   $process_mgt start docker-$sid
 
   elif [ "$process_mgt" = "systemctl" ]; then
@@ -302,11 +303,13 @@ EOF
 
   es=$?
   if [ $es -eq 0 ]; then
+    grep -q 'DEPLOY_STATUS' $serviceinfo ||
     echo "DEPLOY_STATUS=ok" >> $serviceinfo
   else
+    grep -q 'DEPLOY_STATUS' $serviceinfo ||
     echo "DEPLOY_STATUS=no" >> $serviceinfo
+    exit $es
   fi
-  [ $es -ne 0 ] && exit $es
   if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && nicescale_env; then
     $SERVICE_DIR/$serviceid/scripts/create.sh
     [ $? -ne 0 ] && echo "execute create.sh failed after launching container." && 
