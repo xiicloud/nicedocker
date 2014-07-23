@@ -47,8 +47,16 @@ die() {
 info() {
   echo -ne "\e[0;32mInfo\e[m: "
   echo $*
-  return 0
 }
+iecho() {
+  echo -n ++
+  echo $*
+}
+iiecho() {
+  echo -n ++++
+  echo $*
+}
+
 get_repo() {
   local name
   local region
@@ -149,11 +157,11 @@ dprepare() {
     warn "serviceid $serviceid exists! checking status ..."
     . $serviceinfo
     if [ "$DEPLOY_STATUS" = "ok" ]; then
-      echo -e "service $serviceid status: OK, neednot be deployed again."
-      echo -e "if you want deploy it anyway, please run nicedocker stop $serviceid && nicedocker rm $serviceid." 
+      iecho "service $serviceid status: OK, neednot be deployed again."
+      iecho "if you want deploy it anyway, please destroy $serviceid." 
       exit 0
     fi
-    echo "service $serviceid status: no, trying to remove this service and prepare it again ..."
+    iecho "service $serviceid status: no, trying to remove this service and prepare it again ..."
     dkill $serviceid 2>/dev/null
     service_destroy $serviceid
   fi
@@ -169,13 +177,14 @@ dprepare() {
   docker run --rm --name $tmp_container $image sleep 300 &
 
   count=0
-  while [ $count -lt 25 ]; do
+  while [ $count -lt 3000 ]; do
     sleep 0.2
     count=$(( count+1 ))
     if docker top $tmp_container > /dev/null 2>&1; then break
     else true; fi
   done
-
+  [ $count -eq 3000 ] && die "tmp container launch failed while preparing for $serviceid."
+  
   docker cp $tmp_container:/opt/nicedocker/path.ini admin/
   . admin/path.ini
 
@@ -214,9 +223,9 @@ dprepare() {
   docker kill $tmp_container > /dev/null
 
   > $serviceinfo
-  echo -e "SERVICE_TYPE=$servicetype\nSERVICE_VERSION=$servicevsn" >> $serviceinfo
-  echo -e "SERVICE_NAME=$servicename\nSERVICE_ID=$serviceid" >> $serviceinfo
-  echo "finished preparing for service $serviceid"
+  echo "SERVICE_TYPE=$servicetype\nSERVICE_VERSION=$servicevsn" >> $serviceinfo
+  echo "SERVICE_NAME=$servicename\nSERVICE_ID=$serviceid" >> $serviceinfo
+  iecho "finished preparing for service $serviceid"
 }
 
 service_exist() {
@@ -306,30 +315,20 @@ post-stop script
 end script
 EOF
 
-  $process_mgt status docker-$sid|grep -q running ||
-  $process_mgt start docker-$sid
+    $process_mgt status docker-$sid|grep -q running ||
+    $process_mgt start docker-$sid
 
   elif [ "$process_mgt" = "systemctl" ]; then
-    echo preparing to support systemd
+    iecho "preparing to support systemd"
   else
-    echo "unsupported process manage tool."
+    iecho "unsupported process manage tool."
   fi
 
-  es=$?
-  if [ $es -eq 0 ]; then
-    grep -q 'DEPLOY_STATUS' $serviceinfo ||
-    echo "DEPLOY_STATUS=ok" >> $serviceinfo
-  else
-    grep -q 'DEPLOY_STATUS' $serviceinfo ||
-    echo "DEPLOY_STATUS=no" >> $serviceinfo
-    exit $es
-  fi
   if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && nicescale_env; then
-    $SERVICE_DIR/$serviceid/scripts/create.sh
-    [ $? -ne 0 ] && echo "execute create.sh failed after launching container." && 
-    sed -i 's/DEPLOY_STATUS=ok/DEPLOY_STATUS=no/' $serviceinfo && exit 1
+    $SERVICE_DIR/$serviceid/scripts/create.sh ||
+    error "execute create.sh failed after launching container $serviceid"
   fi
-  exit 0
+  echo "DEPLOY_STATUS=ok" >> $serviceinfo
 }
 
 dservice() {
@@ -349,7 +348,7 @@ dservice() {
     if echo $output|grep -q -v running; then
       $process_mgt start docker-$sid
     else
-      echo $output
+      iecho $output
     fi
     ;;
   stop)
@@ -357,7 +356,7 @@ dservice() {
     if echo $output|grep -q running; then
       $process_mgt stop docker-$sid
     else
-      echo $output
+      iecho $output
     fi
     ;;
   reload)
@@ -380,8 +379,8 @@ dservice() {
     ;;
   status)
     if [ -x $SERVICE_DIR/$sid/scripts/status.sh ]; then $SERVICE_DIR/$sid/scripts/status.sh
-    elif docker top $sid > /dev/null 2>&1; then echo Service $sid is running.
-    else echo Service $sid is stopped. && exit 1
+    elif docker top $sid > /dev/null 2>&1; then iecho "service $sid is running."
+    else iecho "service $sid is stopped." && exit 1
     fi
     ;;
   destroy)
@@ -492,7 +491,7 @@ service_destroy() {
   fi
   cd /
   [ -z "$sid" ] || /bin/rm -fr $SERVICE_DIR/$sid
-  echo service $sid removed! 
+  iecho service $sid removed! 
 }
 
 dlogin() {
@@ -557,6 +556,7 @@ dpush() {
 dps() {
   #tabs -8
   echo -e "sid\t\t\t  sname\t\tsip\t\tstype\t\trunning"
+  echo "-----------------------------------------------------------------"
   cd $SERVICE_DIR
   for sid in `ls -l|grep -v admin|grep ^d|awk '{print $9}'`; do
     running=no
@@ -626,7 +626,7 @@ service_register() {
   elif [ "$PRO_MGT" = "systemd" ]; then
     echo
   else
-    echo "unsupported process manage tool."
+    error "unsupported process manage tool."
   fi
 }
 
