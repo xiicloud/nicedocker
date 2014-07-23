@@ -167,6 +167,7 @@ dprepare() {
 
   tmp_container="tmp-container"-`date +%s`
   docker run --rm --name $tmp_container $image sleep 300 &
+
   count=0
   while [ $count -lt 25 ]; do
     sleep 0.2
@@ -174,9 +175,14 @@ dprepare() {
     if docker top $tmp_container > /dev/null 2>&1; then break
     else true; fi
   done
+
   docker cp $tmp_container:/opt/nicedocker/path.ini admin/
   . admin/path.ini
-  [ ! -z "$conf" ] && docker cp $tmp_container:$conf ./ && mv `basename $conf` conf
+
+  if [ -n "$conf" ]; then
+    docker cp $tmp_container:$conf ./
+    mv `basename $conf` conf
+  fi
 
   if [ -n "$log" ]; then
     if [ "$service_log_dir" = $def_service_log_dir ] || [ -z "$service_log_dir" ]; then
@@ -489,23 +495,16 @@ service_destroy() {
   echo service $sid removed! 
 }
 
-dattach() {
+dlogin() {
   sid=$1
-  is_running $sid
-  case "$?" in
-    0)
-      dexec $sid bash
-      ;;
-    1)
-      die "service $sid no running."
-      ;;
-    2)
-      die "service $sid no containerid file."
-      ;;
-    *)
-      die "unkown status."
-  esac
-  
+  if [ -z "$sid" ]; then
+    usage
+    exit 1
+  fi
+  is_running $sid || die "service $sid no run."
+  sname=`get_name_by_id $sid`
+  dexec $sid sh -c "/bin/echo -e 'PS1=\"root@$sname:\w# \"\nalias ls=\"ls --color=auto\"\nalias ll=\"ls -alF\"\nalias grep=\"grep --color=auto\"' > /opt/nicedocker/.bash.rcfile"
+  dexec $sid bash --rcfile /opt/nicedocker/.bash.rcfile
 }
 
 dexec() {
@@ -649,9 +648,7 @@ elif [ "x$1" = "xservice" ]; then
 elif [ "x$1" = "xrm" ]; then
   drm $2 $3
 elif [ "x$1" = "xlogin" ]; then
-  dattach $2
-elif [ "x$1" = "xattach" ]; then
-  dattach $2
+  dlogin $2
 elif [ "x$1" = "xexec" ]; then
   count=$(($# + 1 ))
   args=
