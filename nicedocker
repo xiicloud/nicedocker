@@ -276,13 +276,23 @@ script
   count=0
   while [ \$count -lt 100 ]; do
     sleep 0.2
-    docker ps > /dev/null 2>&1 && break
     count=\$((count+1))
+    docker ps > /dev/null 2>&1 || continue
+    break
   done
   [ \$count -eq 100 ] && echo "no docker server running." && exit 1
 
   docker start $sid 2>/dev/null ||
   docker run -d --name $serviceid --net=host $volume $envvar $image
+  count=0
+  while [ \$count -lt 100 ]; do
+    sleep 0.1
+    count=\$((count+1))
+    docker top $serviceid > /dev/null 2>&1 || continue
+    break
+  done
+  [ \$count -eq 100 ] && echo "service $serviceid run failed." && exit 1
+
   /opt/nicescale/support/bin/cfagent prjenv-add $sid
   docker wait $sid
 end script
