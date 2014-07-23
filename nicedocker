@@ -49,11 +49,6 @@ info() {
   echo $*
 }
 iecho() {
-  echo -n ++
-  echo $*
-}
-iiecho() {
-  echo -n ++++
   echo $*
 }
 
@@ -220,7 +215,7 @@ dprepare() {
   fi
 
   docker cp $tmp_container:/opt/nicedocker/scripts ./ 2>/dev/null || true
-  docker kill $tmp_container > /dev/null
+  docker kill $tmp_container > /dev/null || true
 
   > $serviceinfo
   echo -e "SERVICE_TYPE=$servicetype\nSERVICE_VERSION=$servicevsn" >> $serviceinfo
