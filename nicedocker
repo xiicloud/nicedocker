@@ -497,23 +497,14 @@ service_destroy() {
 
 dlogin() {
   sid=$1
-  is_running $sid
-  case "$?" in
-    0)
-      sname=`get_name_by_id $sid`
-      dexec $sid sh -c "echo 'PS1=root@$sname:\w# ' > /opt/nicedocker/.bash.rcfile"
-      dexec $sid bash --rcfile /opt/nicedocker/.bash.rcfile
-      ;;
-    1)
-      die "service $sid no running."
-      ;;
-    2)
-      die "service $sid no containerid file."
-      ;;
-    *)
-      die "unkown status."
-  esac
-  
+  if [ -z "$sid" ]; then
+    usage
+    exit 1
+  fi
+  is_running $sid || die "service $sid no run."
+  sname=`get_name_by_id $sid`
+  dexec $sid sh -c "/bin/echo -e 'PS1=\"root@$sname:\w# \"\nalias ls=\"ls --color=auto\"\nalias ll=\"ls -alF\"\nalias grep=\"grep --color=auto\"' > /opt/nicedocker/.bash.rcfile"
+  dexec $sid bash --rcfile /opt/nicedocker/.bash.rcfile
 }
 
 dexec() {
