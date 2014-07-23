@@ -176,10 +176,10 @@ dprepare() {
   while [ $count -lt 25 ]; do
     sleep 0.2
     count=$(( count+1 ))
-    if docker ps|grep -q $tmp_container; then break
+    if docker top $tmp_container > /dev/null 2>&1; then break
     else true; fi
   done
-  docker cp $tmp_container:/opt/nicedocker/path.ini admin/ || die "failed to cp path.ini"
+  docker cp $tmp_container:/opt/nicedocker/path.ini admin/
   . admin/path.ini
   [ ! -z "$conf" ] && docker cp $tmp_container:$conf ./ && mv `basename $conf` conf
 
@@ -368,7 +368,7 @@ dservice() {
     ;;
   status)
     if [ -x $SERVICE_DIR/$sid/scripts/status.sh ]; then $SERVICE_DIR/$sid/scripts/status.sh
-    elif docker ps|grep -q -w $sid; then echo Service $sid is running.
+    elif docker top $sid > /dev/null 2>&1; then echo Service $sid is running.
     else echo Service $sid is stopped. && exit 1
     fi
     ;;
@@ -430,7 +430,7 @@ drestart() {
 
 is_running() {
   sid=$1
-  if docker ps --no-trunc|grep -q -w " $sid"; then
+  if docker ps|grep -q -w " $sid"; then
     return 0
   fi
   return 1
@@ -555,9 +555,9 @@ dps() {
   cd $SERVICE_DIR
   for sid in `ls -l|grep -v admin|grep ^d|awk '{print $9}'`; do
     running=no
-    if docker ps --no-trunc|grep -q $sid; then
+    if docker ps|grep -q -w " $sid"; then
       running=yes
-    elif docker ps --no-trunc --all|grep -q $sid; then
+    elif docker ps --all|grep -q -w " $sid"; then
       running=no
     else
       running=deleted
