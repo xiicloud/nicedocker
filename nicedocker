@@ -16,21 +16,16 @@ nicescale_env() {
 usage() {
   echo -e "Usage: $0 command args ...
 
-The dockernice commands supported now are:
-   run servicetype vsn servicename serviceid // run sometype service in docker container
-   login|attach serviceid // login docker, execute command interactively
-   exec serviceid cmd // exec command once in docker non-interactively
-   restart serviceid // restart docker, equal stop && start
-   start serviceid // start stopped docker container
-   stop serviceid // stop running docker container
-   rm serviceid // delete stopped docker container, no purge data
-   commit serviceid // reimage by running container and push to repohost
-   search [searchpattern] // search images supported by NiceScale, if no pattern, list all
-   pull image // pull image from NiceScale
-   push image // push image to your own project repo
-   images // list cached images and local images
-   ps // view all dockers mananged by NiceScale
-   service serviceid {start|stop|reload|restart|status|destroy} // manage service run in docker
+The $0 commands supported now are:
+   run      run some type service in docker, args: type vsn name id
+   ps       view all dockers mananged by nicescale
+   login    login docker, execute command interactively, args: id
+   exec     exec command once in docker non-interactively, args: id cmd
+   start    start stopped docker container, args: id
+   stop     stop running docker container, args: id
+   restart  restart docker, equal stop && start, args: id
+   rm       delete stopped docker container, no purge data, args: id
+   service  operate service, args: id action, actions: {start|stop|reload|restart|status|destroy} 
 "
 }
 
@@ -284,6 +279,7 @@ script
 
   docker start $sid 2>/dev/null ||
   docker run -d --name $serviceid --net=host $volume $envvar $image
+
   count=0
   while [ \$count -lt 100 ]; do
     sleep 0.1
