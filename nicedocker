@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 SERVICE_DIR=/services
 [ -d $SERVICE_DIR ] || mkdir $SERVICE_DIR
 CSP_FILE=/etc/.fp/csp.conf
@@ -177,7 +179,7 @@ dprepare() {
     if docker ps|grep -q $tmp_container; then break
     else true; fi
   done
-  docker cp $tmp_container:/opt/nicedocker/path.ini admin/
+  docker cp $tmp_container:/opt/nicedocker/path.ini admin/ || die "failed to cp path.ini"
   . admin/path.ini
   [ ! -z "$conf" ] && docker cp $tmp_container:$conf ./ && mv `basename $conf` conf
 
@@ -366,7 +368,7 @@ dservice() {
     ;;
   status)
     if [ -x $SERVICE_DIR/$sid/scripts/status.sh ]; then $SERVICE_DIR/$sid/scripts/status.sh
-    elif docker ps|grep -q $sid; then echo Service $sid is running.
+    elif docker ps|grep -q -w $sid; then echo Service $sid is running.
     else echo Service $sid is stopped. && exit 1
     fi
     ;;
@@ -428,7 +430,7 @@ drestart() {
 
 is_running() {
   sid=$1
-  if docker ps --no-trunc|grep -q -w "$sid"; then
+  if docker ps --no-trunc|grep -q -w " $sid"; then
     return 0
   fi
   return 1
@@ -451,16 +453,19 @@ service_destroy() {
 
   is_running $sid && die "service $sid running, cannot remove"
 
-
-  echo "removing docker container $sid "
-  if ! docker rm $sid 2>/dev/null; then
-    sleep 2
-    docker rm $sid 2>/dev/null
-  fi
-
   if [ -f /etc/init/docker-$sid.conf ]; then
     initctl stop -n docker-$sid
     rm -f /etc/init/docker-$sid.conf
+  else
+    true
+  fi
+
+  if ! docker rm $sid > /dev/null 2>&1; then
+    sleep 2
+    docker rm $sid >/dev/null 2>&1
+    true
+  else
+    true
   fi
 
   cd $SERVICE_DIR/$sid
