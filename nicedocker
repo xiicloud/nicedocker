@@ -454,7 +454,7 @@ service_destroy() {
   is_running $sid && die "service $sid running, cannot remove"
 
   if [ -f /etc/init/docker-$sid.conf ]; then
-    initctl stop -n docker-$sid
+    initctl stop -n docker-$sid 2>/dev/null || true
     rm -f /etc/init/docker-$sid.conf
   else
     true
@@ -462,8 +462,7 @@ service_destroy() {
 
   if ! docker rm $sid > /dev/null 2>&1; then
     sleep 2
-    docker rm $sid >/dev/null 2>&1
-    true
+    docker rm $sid >/dev/null 2>&1 || true
   else
     true
   fi
