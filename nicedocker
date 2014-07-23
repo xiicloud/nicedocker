@@ -458,7 +458,10 @@ service_destroy() {
     docker rm $sid 2>/dev/null
   fi
 
-  [ -f /etc/init/docker-$sid.conf ] && rm -f /etc/init/docker-$sid.conf
+  if [ -f /etc/init/docker-$sid.conf ]; then
+    initctl stop -n docker-$sid
+    rm -f /etc/init/docker-$sid.conf
+  fi
 
   cd $SERVICE_DIR/$sid
   if [ -L log ]; then
