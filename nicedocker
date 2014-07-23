@@ -175,7 +175,7 @@ dprepare() {
   count=0
   while [ $count -lt 25 ]; do
     sleep 0.2
-    (( count ++ )) 
+    count=$(( count+1 ))
     if docker ps|grep -q $tmp_container; then break
     else true; fi
   done
@@ -209,7 +209,7 @@ dprepare() {
     fi
   fi
 
-  docker cp $tmp_container:/opt/nicedocker/scripts ./ 2>/dev/null
+  docker cp $tmp_container:/opt/nicedocker/scripts ./ 2>/dev/null || true
   docker kill $tmp_container > /dev/null
 
   > $serviceinfo
