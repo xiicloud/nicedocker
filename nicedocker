@@ -180,8 +180,8 @@ dprepare() {
   while [ $count -lt 3000 ]; do
     sleep 0.2
     count=$(( count+1 ))
-    if docker top $tmp_container > /dev/null 2>&1; then break
-    else true; fi
+    docker top $tmp_container > /dev/null 2>&1 || continue
+    break
   done
   [ $count -eq 3000 ] && die "tmp container launch failed while preparing for $serviceid."
   
@@ -223,8 +223,8 @@ dprepare() {
   docker kill $tmp_container > /dev/null
 
   > $serviceinfo
-  echo "SERVICE_TYPE=$servicetype\nSERVICE_VERSION=$servicevsn" >> $serviceinfo
-  echo "SERVICE_NAME=$servicename\nSERVICE_ID=$serviceid" >> $serviceinfo
+  echo -e "SERVICE_TYPE=$servicetype\nSERVICE_VERSION=$servicevsn" >> $serviceinfo
+  echo -e "SERVICE_NAME=$servicename\nSERVICE_ID=$serviceid" >> $serviceinfo
   iecho "finished preparing for service $serviceid"
 }
 
