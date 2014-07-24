@@ -14,9 +14,9 @@ nicescale_env() {
 
 # supported command
 usage() {
-  echo -e "Usage: $0 command args ...
+  echo -e "Usage: nicedocker command args ...
 
-The $0 commands supported now are:
+The nicedocker commands supported now are:
    run      run some type service in docker, args: type vsn name id
    ps       view all dockers mananged by nicescale
    login    login docker, execute command interactively, args: id
@@ -550,8 +550,8 @@ dpush() {
 
 dps() {
   #tabs -8
-  echo -e "sid\t\t\t  sname\t\tsip\t\tstype\t\trunning"
-  echo "-----------------------------------------------------------------"
+  echo -e "sid\t\t\t  sname\t\tsip\t\tstack\t\trunning"
+  echo "--------------------------------------------------------------------------------"
   cd $SERVICE_DIR
   for sid in `ls -l|grep -v admin|grep ^d|awk '{print $9}'`; do
     running=no
