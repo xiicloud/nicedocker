@@ -319,9 +319,19 @@ EOF
     iecho "unsupported process manage tool."
   fi
 
+  
   if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && nicescale_env; then
+    count=0
+    while [ $count -lt 50; do
+      sleep 0.2
+      count=$(( count+1 ))
+      docker top $serviceid > /dev/null 2>&1 || continue
+      break
+    done
+    [ $count -eq 50 ] && die "service $serviceid run failed."
+
     $SERVICE_DIR/$serviceid/scripts/create.sh ||
-    error "execute create.sh failed after launching container $serviceid"
+    die "execute create.sh failed after launching container $serviceid"
   fi
   echo "DEPLOY_STATUS=ok" >> $serviceinfo
 }
@@ -435,11 +445,7 @@ drestart() {
 }
 
 is_running() {
-  sid=$1
-  if docker ps|grep -q -w " $sid"; then
-    return 0
-  fi
-  return 1
+  docker top $sid > /dev/null 2>&1
 }
 
 drm() {
