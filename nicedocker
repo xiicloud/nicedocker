@@ -550,8 +550,8 @@ dpush() {
 
 dps() {
   #tabs -8
-  echo -e "sid\t\t\t  sname\t\tsip\t\tstype\t\trunning"
-  echo "-----------------------------------------------------------------"
+  echo -e "sid\t\t\t  sname\t\tsip\t\tstack\t\trunning"
+  echo "--------------------------------------------------------------------------------"
   cd $SERVICE_DIR
   for sid in `ls -l|grep -v admin|grep ^d|awk '{print $9}'`; do
     running=no
