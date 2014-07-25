@@ -52,7 +52,7 @@ if [ "$distribution" = "Ubuntu" ]; then
  
   #sed -i 's/#DOCKER_OPTS=.*/DOCKER_OPTS="--storage-driver=devicemapper"/' /etc/default/docker
   service lxc-docker restart
-  /usr/sbin/usermod -G docker ubuntu
+  /usr/sbin/usermod -a -G docker ubuntu
 elif [ "$distribution" = "CentOS" ]; then
   version=`head -1 /etc/issue.net |cut -f3 -d' '`
   [ `echo $version'>'6.4|bc -l` -eq 0 ] && echo not supported version && exit 1
