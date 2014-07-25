@@ -25,7 +25,13 @@ The nicedocker commands supported now are:
    stop     stop running docker container, args: id
    restart  restart docker, equal stop && start, args: id
    rm       delete stopped docker container, no purge data, args: id
-   service  operate service, args: id action, actions: {start|stop|reload|restart|status|destroy} 
+   service  operate service, args: id action, supported actions:
+            start   start service by upstart/systemd, autostart after reboot
+            stop    stop service by upstart/systemd, auto stop while halting
+            reload  restart service gracefully if possible
+            restart restart service by upstart/systemd
+            status  view status of service
+            destroy destroy service totally including data
 "
 }
 
