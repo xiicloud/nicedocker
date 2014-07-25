@@ -672,10 +672,7 @@ elif [ "x$1" = "xps" ]; then
   dps
 elif [ "x$1" = "xkill" ]; then
   dkill $2
-elif [ "x$1" = "xhelp" -o "x$1" = "x--help" ]; then
-  usage
 else
-  [ ! -z $1 ] && error "Invalid command $1!"
   usage
 fi
 
