@@ -319,17 +319,16 @@ EOF
     iecho "unsupported process manage tool."
   fi
 
+  count=0
+  while [ $count -lt 50 ]; do
+    sleep 0.2
+    count=$(( count+1 ))
+    docker top $serviceid > /dev/null 2>&1 || continue
+    break
+  done
+  [ $count -eq 50 ] && die "service $serviceid run failed."
   
   if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && nicescale_env; then
-    count=0
-    while [ $count -lt 50 ]; do
-      sleep 0.2
-      count=$(( count+1 ))
-      docker top $serviceid > /dev/null 2>&1 || continue
-      break
-    done
-    [ $count -eq 50 ] && die "service $serviceid run failed."
-
     $SERVICE_DIR/$serviceid/scripts/create.sh ||
     die "execute create.sh failed after launching container $serviceid"
   fi
