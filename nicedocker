@@ -5,19 +5,21 @@ set -e
 SERVICE_DIR=/services
 [ -d $SERVICE_DIR ] || mkdir $SERVICE_DIR
 CSP_FILE=/etc/.fp/csp.conf
+CREDENTIALS_FILE=/etc/.fp/credentials.conf
 REPOHOST=nicedocker.com
 [ -d /opt/nicescale/support/etc ] || mkdir -p /opt/nicescale/support/etc
 
 nicescale_env() {
-  test -f $CSP_FILE
+  test -f $CSP_FILE &&
+  test -f $CREDENTIALS_FILE
 }
 
 # supported command
 usage() {
-  echo -e "Usage: nicedocker command args ...
+  echo "Usage: nicedocker command args ...
 
 The nicedocker commands supported now are:
-   run      run some type service in docker, args: type vsn name id
+   run      run docker image, args: image tag [name] [id] [options]
    ps       view all dockers mananged by nicescale
    login    login docker, execute command interactively, args: id
    exec     exec command once in docker non-interactively, args: id cmd
@@ -102,6 +104,16 @@ get_name_by_id() {
   cat $SERVICE_DIR/$sid/admin/service.ini|sed -n 's/SERVICE_NAME=\(.*\)/\1/p'
 }
 
+get_id_name() {
+  if [ -d $SERVICE_DIR/$1 ]; then
+    sid=$1
+    sname=`get_name_by_id $sid`
+  else
+    sname=$1
+    sid=`dps|grep $sname|awk '{print $1}'`
+  fi
+}
+
 get_logdir() {
 RUBY=/opt/nicescale/support/bin/ruby
 logdir_ruby="
@@ -140,9 +152,11 @@ dprepare() {
   servicevsn=$2
   servicename=$3
   serviceid=$4
+
   serviceinfo=$SERVICE_DIR/$serviceid/admin/service.ini
   def_service_log_dir=$SERVICE_DIR/$serviceid/log
   def_service_data_dir=$SERVICE_DIR/$serviceid/data
+  is_nicescaleimage=
 
   if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" -o "x$servicename" = "x" -o "x$serviceid" = "x" ]; then
     usage
@@ -171,8 +185,14 @@ dprepare() {
   cd $SERVICE_DIR/$serviceid
   [ -d $SERVICE_DIR/$serviceid/admin ] || mkdir -p $SERVICE_DIR/$serviceid/admin
 
-  repohost=`get_repo`
-  image=$repohost:5000/nicescale/$servicetype:$servicevsn
+  if echo $servicetype|grep -q '/'; then
+    image=$servicetype
+    is_nicescaleimage=false
+  else
+    repohost=`get_repo`
+    image=$repohost:5000/nicescale/$servicetype:$servicevsn
+    is_nicescaleimage=true
+  fi
 
   tmp_container="tmp-container"-`date +%s`
   docker run --rm --name $tmp_container $image sleep 300 &
@@ -186,8 +206,13 @@ dprepare() {
   done
   [ $count -eq 3000 ] && die "tmp container launch failed while preparing for $serviceid."
   
-  docker cp $tmp_container:/opt/nicedocker/path.ini admin/
-  . admin/path.ini
+  if $is_nicescaleimage ; then
+    docker cp $tmp_container:/opt/nicedocker/path.ini admin/
+    . admin/path.ini
+  else
+    docker cp $tmp_container:/opt/nicedocker/path.ini admin/ 2>/dev/null || true
+    [ -f admin/path.ini ] && . admin/path.ini
+  fi
 
   if [ -n "$conf" ]; then
     docker cp $tmp_container:$conf ./
@@ -240,6 +265,7 @@ dcreate() {
   servicevsn=$2
   servicename=$3
   serviceid=$4
+  options="$5"
   serviceinfo=$SERVICE_DIR/$serviceid/admin/service.ini
 
   if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" -o "x$servicename" = "x" -o "x$serviceid" = "x" ]; then
@@ -251,8 +277,8 @@ dcreate() {
   #is_running $serviceid && warn "service $serviceid is running." && return 0
   service_exist $serviceid && warn "service $serviceid already exist." && return 0
 
-  . $SERVICE_DIR/$serviceid/admin/path.ini
-  volume="-v /dev/log:/dev/log"
+  [ -f $SERVICE_DIR/$serviceid/admin/path.ini ] && . $SERVICE_DIR/$serviceid/admin/path.ini
+  volume="-v /dev/log:/dev/log -v /etc/localtime:/etc/localtime"
   [ ! -z "$conf" ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf "$volume
   [ ! -z "$log" ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
   [ ! -z "$data" ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
@@ -263,14 +289,18 @@ dcreate() {
   [ ! -z "$log" ] && envvar="-e LOG_DIR=$log "$envvar
   [ ! -z "$data" ] && envvar="-e DATA_DIR=$data "$envvar
 
-  repohost=`get_repo`
-  #prj_id=abcdefg
-  #if docker pull $repohost:5000/$prj_id/$serviceid:latest; then
-  #  echo
-    #image=$repohost:5000/$prj_id/$serviceid:latest
-  #else
+  if echo $servicetype|grep -q '/'; then
+    image=$servicetype
+    is_nicescaleimage=false
+  else
+    repohost=`get_repo`
     image=$repohost:5000/nicescale/$servicetype:$servicevsn
-  #fi
+    is_nicescaleimage=true
+  fi
+  if nicescale_env; then
+    prjenv_add='/opt/nicescale/support/bin/cfagent prjenv-add $sid'
+    prjenv_del='/opt/nicescale/support/bin/cfagent prjenv-del $sid'
+  fi
 
   get_process_mgt
   if [ "$process_mgt" = "initctl" ]; then
@@ -294,7 +324,7 @@ script
   [ \$count -eq 100 ] && echo "no docker server running." && exit 1
 
   docker start $sid 2>/dev/null ||
-  docker run -d --name $serviceid --net=host $volume $envvar $image
+  docker run -d --name $serviceid --net=host $volume $envvar $options $image
 
   count=0
   while [ \$count -lt 100 ]; do
@@ -305,12 +335,12 @@ script
   done
   [ \$count -eq 100 ] && echo "service $serviceid run failed." && exit 1
 
-  /opt/nicescale/support/bin/cfagent prjenv-add $sid
+  $prjenv_add
   docker wait $sid
 end script
 
 post-stop script
-  /opt/nicescale/support/bin/cfagent prjenv-del $sid
+  $prjenv_del
 
   if [ -x $SERVICE_DIR/$sid/scripts/stop.sh ]; then $SERVICE_DIR/$sid/scripts/stop.sh
   elif docker top $sid > /dev/null; then docker stop $sid
@@ -343,6 +373,32 @@ EOF
   echo "DEPLOY_STATUS=ok" >> $serviceinfo
 }
 
+drun() {
+  servicetype=$1
+  servicevsn=$2
+  servicename=$3
+  serviceid=$4
+  options="$5"
+
+  if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" ]; then
+    usage
+    exit 1
+  fi
+
+  if [ -z "$servicename" ]; then
+    rand_name=$RANDOM
+    if echo $servicetype|grep -q '/'; then
+      servicename=`echo $servicetype|rev|cut -d'/' -f1|rev`-$rand_name
+    else
+      servicename=$servicetype-$rand_name
+    fi
+  fi
+  [ -z "$serviceid" ] && serviceid=sid-`date +%s|md5sum|cut -c1-20`
+
+  dprepare $servicetype $servicevsn $servicename $serviceid
+  dcreate $servicetype $servicevsn $servicename $serviceid "$options"
+}
+
 dservice() {
   sid=$1
   action=$2
@@ -350,6 +406,7 @@ dservice() {
     usage
     exit 1
   fi
+  get_id_name $sid
   [ -e $SERVICE_DIR/$sid ] || die "serviceid $1 not exist"
 
   get_process_mgt
@@ -412,6 +469,7 @@ dstart() {
     exit 1
   fi
 
+  get_id_name $sid
   [ -e $SERVICE_DIR/$sid ] || die "service $1 not exist"
 
   docker start $sid
@@ -424,6 +482,7 @@ dstop() {
     exit 1
   fi
 
+  get_id_name $sid
   [ -e $SERVICE_DIR/$sid ] || die "serviceid $1 not exist"
   is_running $sid || warn "service $sid status is stopped, should not be stopped again."
   docker ps | grep -wq $sid || exit 0
@@ -436,6 +495,7 @@ dkill() {
     usage
     exit 1
   fi
+  get_id_name $sid
   [ -e $SERVICE_DIR/$sid ] || die "service $1 not exist"
   if is_running $sid; then
     docker kill $sid
@@ -461,13 +521,14 @@ drm() {
     usage
     exit 1
   fi
-
+  get_id_name $sid
   docker rm $sid 
 }
 
 service_destroy() {
   sid=$1
 
+  get_id_name $sid
   [ -e $SERVICE_DIR/$sid ] || die "service $sid not exists."
 
   is_running $sid && die "service $sid running, cannot remove"
@@ -508,10 +569,10 @@ dlogin() {
     usage
     exit 1
   fi
+  get_id_name $sid
   is_running $sid || die "service $sid no run."
-  sname=`get_name_by_id $sid`
-  dexec $sid sh -c "/bin/echo -e 'PS1=\"root@$sname:\w# \"\nalias ls=\"ls --color=auto\"\nalias ll=\"ls -alF\"\nalias grep=\"grep --color=auto\"' > /opt/nicedocker/.bash.rcfile"
-  dexec $sid bash --rcfile /opt/nicedocker/.bash.rcfile
+  dexec $sid sh -c "/bin/echo -e 'PS1=\"root@$sname:\w# \"\nalias ls=\"ls --color=auto\"\nalias ll=\"ls -alF\"\nalias grep=\"grep --color=auto\"' > /root/.bashrc"
+  dexec $sid bash --rcfile /root/.bashrc
 }
 
 dexec() {
@@ -520,6 +581,7 @@ dexec() {
     usage
     exit 1
   fi
+  get_id_name $sid
   is_running $sid || die "service $sid no run."
   PID=`docker top $sid|awk '{print $2}'|head -2|tail -1`
   [ -e /usr/local/bin/nsexec ] || die "no nsexec command."
@@ -639,12 +701,11 @@ service_register() {
 }
 
 if [ "x$1" = "xrun" ]; then
-  dprepare $2 $3 "$4" $5 
-  dcreate $2 $3 "$4" $5
+  drun $2 $3 "$4" $5 "$6"
 elif [ "x$1" = "xprepare" ]; then
   dprepare $2 $3 "$4" $5
 elif [ "x$1" = "xcreate" ]; then
-  dcreate $2 $3 "$4" $5
+  dcreate $2 $3 "$4" $5 "$6"
 elif [ "x$1" = "xstart" ]; then
   dstart $2
 elif [ "x$1" = "xstop" ]; then
