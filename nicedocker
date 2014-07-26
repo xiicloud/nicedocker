@@ -393,7 +393,7 @@ drun() {
       servicename=$servicetype-$rand_name
     fi
   fi
-  [ -z "$serviceid" ] && serviceid=sid-`date +%s`
+  [ -z "$serviceid" ] && serviceid=sid-`date +%s|md5sum|cut -c1-20`
 
   dprepare $servicetype $servicevsn $servicename $serviceid
   dcreate $servicetype $servicevsn $servicename $serviceid "$options"
