@@ -17,7 +17,7 @@ usage() {
   echo -e "Usage: nicedocker command args ...
 
 The nicedocker commands supported now are:
-   run      run some type service in docker, args: type vsn name id
+   run      run some type service in docker, args: type vsn name id [options]
    ps       view all dockers mananged by nicescale
    login    login docker, execute command interactively, args: id
    exec     exec command once in docker non-interactively, args: id cmd
@@ -197,7 +197,7 @@ dprepare() {
     docker cp $tmp_container:/opt/nicedocker/path.ini admin/
     . admin/path.ini
   else
-    docker cp $tmp_container:/opt/nicedocker/path.ini admin/ 2>/dev/null || mkdir admin || true
+    docker cp $tmp_container:/opt/nicedocker/path.ini admin/ 2>/dev/null || true
     [ -f admin/path.ini ] && . admin/path.ini
   fi
 
@@ -252,6 +252,7 @@ dcreate() {
   servicevsn=$2
   servicename=$3
   serviceid=$4
+  options="$5"
   serviceinfo=$SERVICE_DIR/$serviceid/admin/service.ini
 
   if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" -o "x$servicename" = "x" -o "x$serviceid" = "x" ]; then
@@ -306,7 +307,7 @@ script
   [ \$count -eq 100 ] && echo "no docker server running." && exit 1
 
   docker start $sid 2>/dev/null ||
-  docker run -d --name $serviceid --net=host $volume $envvar $image
+  docker run -d --name $serviceid --net=host $volume $envvar $options $image
 
   count=0
   while [ \$count -lt 100 ]; do
