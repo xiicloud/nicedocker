@@ -143,6 +143,7 @@ dprepare() {
   serviceinfo=$SERVICE_DIR/$serviceid/admin/service.ini
   def_service_log_dir=$SERVICE_DIR/$serviceid/log
   def_service_data_dir=$SERVICE_DIR/$serviceid/data
+  is_nicescaleimage=
 
   if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" -o "x$servicename" = "x" -o "x$serviceid" = "x" ]; then
     usage
@@ -171,8 +172,14 @@ dprepare() {
   cd $SERVICE_DIR/$serviceid
   [ -d $SERVICE_DIR/$serviceid/admin ] || mkdir -p $SERVICE_DIR/$serviceid/admin
 
-  repohost=`get_repo`
-  image=$repohost:5000/nicescale/$servicetype:$servicevsn
+  if echo $servicetype|grep -q '/'; then
+    image=$servicetype
+    is_nicescaleimage=false
+  else
+    repohost=`get_repo`
+    image=$repohost:5000/nicescale/$servicetype:$servicevsn
+    is_nicescaleimage=true
+  fi
 
   tmp_container="tmp-container"-`date +%s`
   docker run --rm --name $tmp_container $image sleep 300 &
@@ -186,8 +193,13 @@ dprepare() {
   done
   [ $count -eq 3000 ] && die "tmp container launch failed while preparing for $serviceid."
   
-  docker cp $tmp_container:/opt/nicedocker/path.ini admin/
-  . admin/path.ini
+  if $is_nicescaleimage ; then
+    docker cp $tmp_container:/opt/nicedocker/path.ini admin/
+    . admin/path.ini
+  else
+    docker cp $tmp_container:/opt/nicedocker/path.ini admin/ || mkdir admin || true
+    [ -f admin/path.ini ] && . admin/path.ini
+  fi
 
   if [ -n "$conf" ]; then
     docker cp $tmp_container:$conf ./
@@ -251,7 +263,7 @@ dcreate() {
   #is_running $serviceid && warn "service $serviceid is running." && return 0
   service_exist $serviceid && warn "service $serviceid already exist." && return 0
 
-  . $SERVICE_DIR/$serviceid/admin/path.ini
+  [ -f $SERVICE_DIR/$serviceid/admin/path.ini ] && . $SERVICE_DIR/$serviceid/admin/path.ini
   volume="-v /dev/log:/dev/log"
   [ ! -z "$conf" ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf "$volume
   [ ! -z "$log" ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
@@ -263,14 +275,14 @@ dcreate() {
   [ ! -z "$log" ] && envvar="-e LOG_DIR=$log "$envvar
   [ ! -z "$data" ] && envvar="-e DATA_DIR=$data "$envvar
 
-  repohost=`get_repo`
-  #prj_id=abcdefg
-  #if docker pull $repohost:5000/$prj_id/$serviceid:latest; then
-  #  echo
-    #image=$repohost:5000/$prj_id/$serviceid:latest
-  #else
+  if echo $servicetype|grep -q '/'; then
+    image=$servicetype
+    is_nicescaleimage=false
+  else
+    repohost=`get_repo`
     image=$repohost:5000/nicescale/$servicetype:$servicevsn
-  #fi
+    is_nicescaleimage=true
+  fi
 
   get_process_mgt
   if [ "$process_mgt" = "initctl" ]; then
