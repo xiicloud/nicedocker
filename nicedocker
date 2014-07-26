@@ -197,7 +197,7 @@ dprepare() {
     docker cp $tmp_container:/opt/nicedocker/path.ini admin/
     . admin/path.ini
   else
-    docker cp $tmp_container:/opt/nicedocker/path.ini admin/ || mkdir admin || true
+    docker cp $tmp_container:/opt/nicedocker/path.ini admin/ 2>/dev/null || mkdir admin || true
     [ -f admin/path.ini ] && . admin/path.ini
   fi
 
@@ -522,8 +522,8 @@ dlogin() {
   fi
   is_running $sid || die "service $sid no run."
   sname=`get_name_by_id $sid`
-  dexec $sid sh -c "/bin/echo -e 'PS1=\"root@$sname:\w# \"\nalias ls=\"ls --color=auto\"\nalias ll=\"ls -alF\"\nalias grep=\"grep --color=auto\"' > /opt/nicedocker/.bash.rcfile"
-  dexec $sid bash --rcfile /opt/nicedocker/.bash.rcfile
+  dexec $sid sh -c "/bin/echo -e 'PS1=\"root@$sname:\w# \"\nalias ls=\"ls --color=auto\"\nalias ll=\"ls -alF\"\nalias grep=\"grep --color=auto\"' > /root/.bashrc"
+  dexec $sid bash --rcfile /root/.bashrc
 }
 
 dexec() {
