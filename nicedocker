@@ -265,7 +265,7 @@ dcreate() {
   service_exist $serviceid && warn "service $serviceid already exist." && return 0
 
   [ -f $SERVICE_DIR/$serviceid/admin/path.ini ] && . $SERVICE_DIR/$serviceid/admin/path.ini
-  volume="-v /dev/log:/dev/log"
+  volume="-v /dev/log:/dev/log -v /etc/localtime:/etc/localtime"
   [ ! -z "$conf" ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf "$volume
   [ ! -z "$log" ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
   [ ! -z "$data" ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
@@ -283,6 +283,10 @@ dcreate() {
     repohost=`get_repo`
     image=$repohost:5000/nicescale/$servicetype:$servicevsn
     is_nicescaleimage=true
+  fi
+  if nicescale_env; then
+    prjenv_add='/opt/nicescale/support/bin/cfagent prjenv-add $sid'
+    prjenv_del='/opt/nicescale/support/bin/cfagent prjenv-del $sid'
   fi
 
   get_process_mgt
@@ -318,12 +322,12 @@ script
   done
   [ \$count -eq 100 ] && echo "service $serviceid run failed." && exit 1
 
-  /opt/nicescale/support/bin/cfagent prjenv-add $sid
+  $prjenv_add
   docker wait $sid
 end script
 
 post-stop script
-  /opt/nicescale/support/bin/cfagent prjenv-del $sid
+  $prjenv_del
 
   if [ -x $SERVICE_DIR/$sid/scripts/stop.sh ]; then $SERVICE_DIR/$sid/scripts/stop.sh
   elif docker top $sid > /dev/null; then docker stop $sid
@@ -653,11 +657,11 @@ service_register() {
 
 if [ "x$1" = "xrun" ]; then
   dprepare $2 $3 "$4" $5 
-  dcreate $2 $3 "$4" $5
+  dcreate $2 $3 "$4" $5 "$6"
 elif [ "x$1" = "xprepare" ]; then
   dprepare $2 $3 "$4" $5
 elif [ "x$1" = "xcreate" ]; then
-  dcreate $2 $3 "$4" $5
+  dcreate $2 $3 "$4" $5 "$6"
 elif [ "x$1" = "xstart" ]; then
   dstart $2
 elif [ "x$1" = "xstop" ]; then
