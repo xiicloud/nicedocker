@@ -9,7 +9,8 @@ REPOHOST=nicedocker.com
 [ -d /opt/nicescale/support/etc ] || mkdir -p /opt/nicescale/support/etc
 
 nicescale_env() {
-  test -f $CSP_FILE
+  test -f $CSP_FILE &&
+  test -f /etc/.fp/credentials
 }
 
 # supported command
