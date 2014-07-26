@@ -10,7 +10,7 @@ REPOHOST=nicedocker.com
 
 nicescale_env() {
   test -f $CSP_FILE &&
-  test -f /etc/.fp/credentials
+  test -f /etc/.fp/credentials.conf
 }
 
 # supported command
