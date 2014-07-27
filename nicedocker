@@ -119,7 +119,7 @@ RUBY=/opt/nicescale/support/bin/ruby
 logdir_ruby="
 require 'fp/node'
 begin
-paths=FP::Vars.get_service_var('$serviceid', 'path_config', 'meta')
+paths=FP::Vars.get_service_var('$sid', 'path_config', 'meta')
 paths.each_pair { |k, v|
   if k == 'log'; puts v;return v; end
 }
@@ -135,7 +135,7 @@ RUBY=/opt/nicescale/support/bin/ruby
 datadir_ruby="
 require 'fp/node'
 begin
-paths=FP::Vars.get_service_var('$serviceid', 'path_config', 'meta')
+paths=FP::Vars.get_service_var('$sid', 'path_config', 'meta')
 paths.each_pair { |k, v|
   if k == 'data'; puts v;return v; end
 }
@@ -146,19 +146,19 @@ end
 $RUBY -e "$datadir_ruby"
 }
 
-# servicetype servicevsn servicename serviceid
+# simage stag sname sid
 dprepare() {
-  servicetype=$1
-  servicevsn=$2
-  servicename=$3
-  serviceid=$4
+  simage=$1
+  stag=$2
+  sname=$3
+  sid=$4
 
-  serviceinfo=$SERVICE_DIR/$serviceid/admin/service.ini
-  def_service_log_dir=$SERVICE_DIR/$serviceid/log
-  def_service_data_dir=$SERVICE_DIR/$serviceid/data
+  serviceinfo=$SERVICE_DIR/$sid/admin/service.ini
+  def_service_log_dir=$SERVICE_DIR/$sid/log
+  def_service_data_dir=$SERVICE_DIR/$sid/data
   is_nicescaleimage=
 
-  if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" -o "x$servicename" = "x" -o "x$serviceid" = "x" ]; then
+  if [ "x$simage" = "x" -o "x$stag" = "x" -o "x$sname" = "x" -o "x$sid" = "x" ]; then
     usage
     exit 1
   fi
@@ -169,28 +169,28 @@ dprepare() {
   fi
 
   if [ -f $serviceinfo ]; then
-    warn "serviceid $serviceid exists! checking status ..."
+    warn "service $sid exists! checking status ..."
     . $serviceinfo
     if [ "$DEPLOY_STATUS" = "ok" ]; then
-      iecho "service $serviceid status: OK, neednot be deployed again."
-      iecho "if you want deploy it anyway, please destroy $serviceid." 
+      iecho "service $sid status: OK, neednot be deployed again."
+      iecho "if you want deploy it anyway, please destroy $sid." 
       exit 0
     fi
-    iecho "service $serviceid status: no, trying to remove this service and prepare it again ..."
-    dkill $serviceid 2>/dev/null
-    service_destroy $serviceid
+    iecho "service $sid status: no, trying to remove this service and prepare it again ..."
+    dkill $sid 2>/dev/null
+    service_destroy $sid
   fi
 
-  mkdir -p $SERVICE_DIR/$serviceid
-  cd $SERVICE_DIR/$serviceid
-  [ -d $SERVICE_DIR/$serviceid/admin ] || mkdir -p $SERVICE_DIR/$serviceid/admin
+  mkdir -p $SERVICE_DIR/$sid
+  cd $SERVICE_DIR/$sid
+  [ -d $SERVICE_DIR/$sid/admin ] || mkdir -p $SERVICE_DIR/$sid/admin
 
-  if echo $servicetype|grep -q '/'; then
-    image=$servicetype
+  if echo $simage|grep -q '/'; then
+    image=$simage
     is_nicescaleimage=false
   else
     repohost=`get_repo`
-    image=$repohost:5000/nicescale/$servicetype:$servicevsn
+    image=$repohost:5000/nicescale/$simage:$stag
     is_nicescaleimage=true
   fi
 
@@ -204,7 +204,7 @@ dprepare() {
     docker top $tmp_container > /dev/null 2>&1 || continue
     break
   done
-  [ $count -eq 3000 ] && die "tmp container launch failed while preparing for $serviceid."
+  [ $count -eq 3000 ] && die "tmp container launch failed while preparing for $sid."
   
   if $is_nicescaleimage ; then
     docker cp $tmp_container:/opt/nicedocker/path.ini admin/
@@ -228,7 +228,7 @@ dprepare() {
       log_dirname=`dirname $service_log_dir`
       docker cp $tmp_container:$log $log_dirname/ &&
       [ "$log_basename" != `basename $log` ] && mv $log_dirname/`basename $log` $log_dirname/$log_basename
-      ln -s $service_log_dir /services/$serviceid/log
+      ln -s $service_log_dir /services/$sid/log
     fi
   fi
 
@@ -241,7 +241,7 @@ dprepare() {
       data_dirname=`dirname $service_data_dir`
       docker cp $tmp_container:$data $data_dirname/ &&
       [ "$data_basename" != `basename $data` ] && mv $data_dirname/`basename $data` $data_dirname/$data_basename
-      ln -s $service_data_dir /services/$serviceid/data
+      ln -s $service_data_dir /services/$sid/data
     fi
   fi
 
@@ -249,9 +249,9 @@ dprepare() {
   docker kill $tmp_container > /dev/null || true
 
   > $serviceinfo
-  echo -e "SERVICE_TYPE=$servicetype\nSERVICE_VERSION=$servicevsn" >> $serviceinfo
-  echo -e "SERVICE_NAME=$servicename\nSERVICE_ID=$serviceid" >> $serviceinfo
-  iecho "finished preparing for service $serviceid"
+  echo -e "SERVICE_TYPE=$simage\nSERVICE_VERSION=$stag" >> $serviceinfo
+  echo -e "SERVICE_NAME=$sname\nSERVICE_ID=$sid" >> $serviceinfo
+  iecho "finished preparing for service $sid"
 }
 
 service_exist() {
@@ -261,27 +261,27 @@ service_exist() {
 }
 
 dcreate() {
-  servicetype=$1
-  servicevsn=$2
-  servicename=$3
-  serviceid=$4
+  simage=$1
+  stag=$2
+  sname=$3
+  sid=$4
   options="$5"
-  serviceinfo=$SERVICE_DIR/$serviceid/admin/service.ini
+  serviceinfo=$SERVICE_DIR/$sid/admin/service.ini
 
-  if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" -o "x$servicename" = "x" -o "x$serviceid" = "x" ]; then
+  if [ "x$simage" = "x" -o "x$stag" = "x" -o "x$sname" = "x" -o "x$sid" = "x" ]; then
     usage
     exit 1
   fi
 
-  [ -d $SERVICE_DIR/$serviceid ] || die "no serviceid directory:$SERVICE_DIR/$serviceid, forget prepare?"
-  #is_running $serviceid && warn "service $serviceid is running." && return 0
-  service_exist $serviceid && warn "service $serviceid already exist." && return 0
+  [ -d $SERVICE_DIR/$sid ] || die "no service directory:$SERVICE_DIR/$sid, forget prepare?"
+  #is_running $sid && warn "service $sid is running." && return 0
+  service_exist $sid && warn "service $sid already exist." && return 0
 
-  [ -f $SERVICE_DIR/$serviceid/admin/path.ini ] && . $SERVICE_DIR/$serviceid/admin/path.ini
+  [ -f $SERVICE_DIR/$sid/admin/path.ini ] && . $SERVICE_DIR/$sid/admin/path.ini
   volume="-v /dev/log:/dev/log -v /etc/localtime:/etc/localtime"
-  [ ! -z "$conf" ] && volume="-v $SERVICE_DIR/$serviceid/conf:$conf "$volume
-  [ ! -z "$log" ] && volume="-v $SERVICE_DIR/$serviceid/log:$log "$volume
-  [ ! -z "$data" ] && volume="-v $SERVICE_DIR/$serviceid/data:$data "$volume
+  [ ! -z "$conf" ] && volume="-v $SERVICE_DIR/$sid/conf:$conf "$volume
+  [ ! -z "$log" ] && volume="-v $SERVICE_DIR/$sid/log:$log "$volume
+  [ ! -z "$data" ] && volume="-v $SERVICE_DIR/$sid/data:$data "$volume
 
   envvar=
   nicescale_env && envvar="-e NICESCALE=1"
@@ -289,17 +289,17 @@ dcreate() {
   [ ! -z "$log" ] && envvar="-e LOG_DIR=$log "$envvar
   [ ! -z "$data" ] && envvar="-e DATA_DIR=$data "$envvar
 
-  if echo $servicetype|grep -q '/'; then
-    image=$servicetype
+  if echo $simage|grep -q '/'; then
+    image=$simage
     is_nicescaleimage=false
   else
     repohost=`get_repo`
-    image=$repohost:5000/nicescale/$servicetype:$servicevsn
+    image=$repohost:5000/nicescale/$simage:$stag
     is_nicescaleimage=true
   fi
   if nicescale_env; then
-    prjenv_add='/opt/nicescale/support/bin/cfagent prjenv-add $sid'
-    prjenv_del='/opt/nicescale/support/bin/cfagent prjenv-del $sid'
+    prjenv_add="/opt/nicescale/support/bin/cfagent prjenv-add $sid"
+    prjenv_del="/opt/nicescale/support/bin/cfagent prjenv-del $sid"
   fi
 
   get_process_mgt
@@ -324,16 +324,16 @@ script
   [ \$count -eq 100 ] && echo "no docker server running." && exit 1
 
   docker start $sid 2>/dev/null ||
-  docker run -d --name $serviceid --net=host $volume $envvar $options $image
+  docker run -d --name $sid --net=host $volume $envvar $options $image
 
   count=0
   while [ \$count -lt 100 ]; do
     sleep 0.1
     count=\$((count+1))
-    docker top $serviceid > /dev/null 2>&1 || continue
+    docker top $sid > /dev/null 2>&1 || continue
     break
   done
-  [ \$count -eq 100 ] && echo "service $serviceid run failed." && exit 1
+  [ \$count -eq 100 ] && echo "service $sid run failed." && exit 1
 
   $prjenv_add
   docker wait $sid
@@ -361,42 +361,42 @@ EOF
   while [ $count -lt 50 ]; do
     sleep 0.2
     count=$(( count+1 ))
-    docker top $serviceid > /dev/null 2>&1 || continue
+    docker top $sid > /dev/null 2>&1 || continue
     break
   done
-  [ $count -eq 50 ] && die "service $serviceid run failed."
+  [ $count -eq 50 ] && die "service $sid run failed."
   
-  if [ -x $SERVICE_DIR/$serviceid/scripts/create.sh ] && nicescale_env; then
-    $SERVICE_DIR/$serviceid/scripts/create.sh ||
-    die "execute create.sh failed after launching container $serviceid"
+  if [ -x $SERVICE_DIR/$sid/scripts/create.sh ] && nicescale_env; then
+    $SERVICE_DIR/$sid/scripts/create.sh ||
+    die "execute create.sh failed after launching container $sid"
   fi
   echo "DEPLOY_STATUS=ok" >> $serviceinfo
 }
 
 drun() {
-  servicetype=$1
-  servicevsn=$2
-  servicename=$3
-  serviceid=$4
+  simage=$1
+  stag=$2
+  sname=$3
+  sid=$4
   options="$5"
 
-  if [ "x$servicetype" = "x" -o "x$servicevsn" = "x" ]; then
+  if [ "x$simage" = "x" -o "x$stag" = "x" ]; then
     usage
     exit 1
   fi
 
-  if [ -z "$servicename" ]; then
+  if [ -z "$sname" ]; then
     rand_name=$RANDOM
-    if echo $servicetype|grep -q '/'; then
-      servicename=`echo $servicetype|rev|cut -d'/' -f1|rev`-$rand_name
+    if echo $simage|grep -q '/'; then
+      sname=`echo $simage|rev|cut -d'/' -f1|rev`-$rand_name
     else
-      servicename=$servicetype-$rand_name
+      sname=$simage-$rand_name
     fi
   fi
-  [ -z "$serviceid" ] && serviceid=sid-`date +%s|md5sum|cut -c1-20`
+  [ -z "$sid" ] && sid=sid-`date +%s|md5sum|cut -c1-20`
 
-  dprepare $servicetype $servicevsn $servicename $serviceid
-  dcreate $servicetype $servicevsn $servicename $serviceid "$options"
+  dprepare $simage $stag $sname $sid
+  dcreate $simage $stag $sname $sid "$options"
 }
 
 dservice() {
@@ -407,7 +407,7 @@ dservice() {
     exit 1
   fi
   get_id_name $sid
-  [ -e $SERVICE_DIR/$sid ] || die "serviceid $1 not exist"
+  [ -e $SERVICE_DIR/$sid ] || die "service $1 not exist"
 
   get_process_mgt
 
@@ -483,7 +483,7 @@ dstop() {
   fi
 
   get_id_name $sid
-  [ -e $SERVICE_DIR/$sid ] || die "serviceid $1 not exist"
+  [ -e $SERVICE_DIR/$sid ] || die "service $1 not exist"
   is_running $sid || warn "service $sid status is stopped, should not be stopped again."
   docker ps | grep -wq $sid || exit 0
   docker stop $sid 
