@@ -19,7 +19,12 @@ usage() {
   echo "Usage: nicedocker command args ...
 
 The nicedocker commands supported now are:
-   run      run docker image, args: image tag [name] [id] [options]
+   run      run    docker image, args supported:
+            image  docker image you want to run, such as nicescale/memcached
+            tag    docker image tag, general: latest or software version
+            [name] service name, will auto generate if empty
+            [id]   service uuid, will auto generate if empty
+            [options] others options needed, see docker help run
    ps       view all dockers mananged by nicescale
    login    login docker, execute command interactively, args: id
    exec     exec command once in docker non-interactively, args: id cmd
@@ -185,13 +190,13 @@ dprepare() {
   cd $SERVICE_DIR/$sid
   [ -d $SERVICE_DIR/$sid/admin ] || mkdir -p $SERVICE_DIR/$sid/admin
 
-  if echo $simage|grep -q '/'; then
+  if echo $simage|grep -q '^nicescale/'; then
+    repohost=`get_repo`
+    image=$repohost:5000/$simage:$stag
+    is_nicescaleimage=true
+  else
     image=$simage
     is_nicescaleimage=false
-  else
-    repohost=`get_repo`
-    image=$repohost:5000/nicescale/$simage:$stag
-    is_nicescaleimage=true
   fi
 
   tmp_container="tmp-container"-`date +%s`
@@ -289,14 +294,15 @@ dcreate() {
   [ ! -z "$log" ] && envvar="-e LOG_DIR=$log "$envvar
   [ ! -z "$data" ] && envvar="-e DATA_DIR=$data "$envvar
 
-  if echo $simage|grep -q '/'; then
+  if echo $simage|grep -q '^nicescale/'; then
+    repohost=`get_repo`
+    image=$repohost:5000/$simage:$stag
+    is_nicescaleimage=true
+  else
     image=$simage
     is_nicescaleimage=false
-  else
-    repohost=`get_repo`
-    image=$repohost:5000/nicescale/$simage:$stag
-    is_nicescaleimage=true
   fi
+
   if nicescale_env; then
     prjenv_add="/opt/nicescale/support/bin/cfagent prjenv-add $sid"
     prjenv_del="/opt/nicescale/support/bin/cfagent prjenv-del $sid"
