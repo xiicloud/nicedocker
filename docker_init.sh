@@ -11,7 +11,6 @@ NICESCALEDIR=/opt/nicescale/support
 [ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 #[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 
-SERVICE_TYPES="redis memcached apache_php haproxy tomcat percona-mysql"
 CSP_FILE=/etc/.fp/csp.conf
 REPOHOST=nicedocker.com
 get_repo() {
@@ -79,7 +78,9 @@ ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/dockernice
 ln -sf $NICESCALEDIR/bin/nsexec /usr/local/bin/nsexec
 
 repohost=`get_repo`
-for s in $SERVICE_TYPES; do
+git clone https://github.com/nicescale/docker-test.git $wDIR/docker-test
+. $wDIR/docker-test/get_images.sh
+for s in $STACKLIST; do
     docker pull $repohost:5000/nicescale/$s
 done
 
