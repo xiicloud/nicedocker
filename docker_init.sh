@@ -78,10 +78,17 @@ ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/dockernice
 ln -sf $NICESCALEDIR/bin/nsexec /usr/local/bin/nsexec
 
 repohost=`get_repo`
+NICEDOCKER_URL=$repohost:5000
 git clone https://github.com/nicescale/docker-test.git $wDIR/docker-test
 . $wDIR/docker-test/get_images.sh
-for s in $STACKLIST; do
-    docker pull $repohost:5000/nicescale/$s
+for STACK in $STACKLIST; do
+  for BRANCH in `get_branch $STACK`; do
+    tags=`get_tags $STACK $BRANCH`
+    for t in `echo $tags|tr ',' ' '`; do
+      docker pull $NICEDOCKER_URL/nicescale/$STACK:$t
+      docker tag $NICEDOCKER_URL/nicescale/$STACK:$t nicescale/$STACK:$t
+    done
+  done
 done
 
 # make sure no remove root forever!
