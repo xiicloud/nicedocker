@@ -12,13 +12,13 @@ NICESCALEDIR=/opt/nicescale/support
 #[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 
 CSP_FILE=/etc/.fp/csp.conf
-REPOHOST=nicedocker.com
+REPOHOST=repo.nicedocker.com
 get_repo() {
   local name
   local region
   if [ -f $CSP_FILE ]; then
     . $CSP_FILE
-    echo $DOCKER_HOST
+    echo $region-$name.nicedocker.com
   else
     echo $REPOHOST
   fi
