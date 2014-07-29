@@ -104,8 +104,8 @@ get_vsn_by_id() {
 
 get_name_by_id() {
   sid=$1
-  [ -d $SERVICE_DIR/$sid ] || die "service $sid not exist."
-  [ -f $SERVICE_DIR/$sid/admin/service.ini ] || die "no service.ini for service $sid, maybe deployed failed."
+  [ -d $SERVICE_DIR/$sid ] || error "service $sid not exist."
+  [ -f $SERVICE_DIR/$sid/admin/service.ini ] || error "no service.ini for service $sid, maybe deployed failed."
   cat $SERVICE_DIR/$sid/admin/service.ini|sed -n 's/SERVICE_NAME=\(.*\)/\1/p'
 }
 
@@ -195,7 +195,7 @@ dprepare() {
     image=$repohost:5000/$simage:$stag
     is_nicescaleimage=true
   else
-    image=$simage
+    image=$simage:$stag
     is_nicescaleimage=false
   fi
 
@@ -211,13 +211,8 @@ dprepare() {
   done
   [ $count -eq 3000 ] && die "tmp container launch failed while preparing for $sid."
   
-  if $is_nicescaleimage ; then
-    docker cp $tmp_container:/opt/nicedocker/path.ini admin/
-    . admin/path.ini
-  else
-    docker cp $tmp_container:/opt/nicedocker/path.ini admin/ 2>/dev/null || true
-    [ -f admin/path.ini ] && . admin/path.ini
-  fi
+  docker cp $tmp_container:/opt/nicedocker/path.ini admin/ 2>/dev/null || true
+  [ -f admin/path.ini ] && . admin/path.ini
 
   if [ -n "$conf" ]; then
     docker cp $tmp_container:$conf ./
@@ -412,7 +407,7 @@ dservice() {
     usage
     exit 1
   fi
-  get_id_name $sid
+  get_id_name $sid || true
   [ -e $SERVICE_DIR/$sid ] || die "service $1 not exist"
 
   get_process_mgt
@@ -453,9 +448,21 @@ dservice() {
     fi
     ;;
   status)
-    if [ -x $SERVICE_DIR/$sid/scripts/status.sh ]; then $SERVICE_DIR/$sid/scripts/status.sh
-    elif docker top $sid > /dev/null 2>&1; then iecho "service $sid is running."
-    else iecho "service $sid is stopped." && exit 1
+    output=`$process_mgt status docker-$sid`
+    if [ -x $SERVICE_DIR/$sid/scripts/status.sh ]; then
+      $SERVICE_DIR/$sid/scripts/status.sh
+    elif docker top $sid > /dev/null 2>&1; then
+      if echo $output|grep -q running; then
+        iecho "service $sid is running."
+      else
+        iecho "service $sid status inconsistent, docker running, upstart stopped." && exit 2
+      fi
+    else
+      if echo $output|grep -q running; then
+        iecho "service $sid status inconsistent, docker stopped, upstart running." && exit 3
+      else
+        iecho "service $sid is stopped." && exit 1
+      fi
     fi
     ;;
   destroy)
@@ -534,7 +541,7 @@ drm() {
 service_destroy() {
   sid=$1
 
-  get_id_name $sid
+  get_id_name $sid > /dev/null 2>&1 || true
   [ -e $SERVICE_DIR/$sid ] || die "service $sid not exists."
 
   is_running $sid && die "service $sid running, cannot remove"
@@ -645,7 +652,7 @@ dps() {
     fi
     ipaddr=`docker inspect $sid 2>/dev/null|grep IPAddress|sed -n "s/.*\"\([0-9].*[0-9]\)\".*/\1/p"`
     [ -z $ipaddr ] && ipaddr='N/A\t'
-    echo -e "$sid  `get_name_by_id $sid`\t$ipaddr\t`get_type_by_id $sid`:`get_vsn_by_id $sid`\t$running"
+    echo -e "$sid  `get_name_by_id $sid 2>/dev/null`\t$ipaddr\t`get_type_by_id $sid 2>/dev/null`:`get_vsn_by_id $sid 2>/dev/null`\t$running"
   done
 }
 
