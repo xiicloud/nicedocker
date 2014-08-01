@@ -192,7 +192,7 @@ dprepare() {
   is_nicescaleimage=false
   if echo $simage|grep -q '^nicescale/'; then
     repohost=`get_repo`
-    if [ -n $repohost ]; then
+    if [ -n "$repohost" ]; then
       image=$repohost:5000/$simage:$stag
       is_nicescaleimage=true
     fi
