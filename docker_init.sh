@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 echo "docker init beginning ..."
 tv=`date +%s`
 WDIR=/tmp/docker_$tv
