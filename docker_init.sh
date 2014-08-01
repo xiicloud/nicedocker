@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 echo "docker init beginning ..."
 tv=`date +%s`
