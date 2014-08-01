@@ -79,8 +79,8 @@ ln -sf $NICESCALEDIR/bin/nsexec /usr/local/bin/nsexec
 
 repohost=`get_repo`
 NICEDOCKER_URL=$repohost:5000
-git clone https://github.com/nicescale/docker-test.git $wDIR/docker-test
-. $wDIR/docker-test/get_images.sh
+git clone https://github.com/nicescale/docker-test.git $WDIR/docker-test
+. $WDIR/docker-test/get_images.sh
 for STACK in $STACKLIST; do
   for BRANCH in `get_branch $STACK`; do
     tags=`get_tags $STACK $BRANCH`
