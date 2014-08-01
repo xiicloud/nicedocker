@@ -70,7 +70,7 @@ get_repo() {
   local region
   if [ -f $CSP_FILE ]; then
     . $CSP_FILE
-    echo $DOCKER_HOST
+    echo $region-$name.nicedocker.com
   else
     echo $REPOHOST
   fi
