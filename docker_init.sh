@@ -11,15 +11,14 @@ NICESCALEDIR=/opt/nicescale/support
 [ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 #[ -d $NICESCALEDIR/etc ] || mkdir -p $NICESCALEDIR/etc
 
-SERVICE_TYPES="redis memcached apache_php haproxy tomcat percona-mysql"
 CSP_FILE=/etc/.fp/csp.conf
-REPOHOST=nicedocker.com
+REPOHOST=repo.nicedocker.com
 get_repo() {
   local name
   local region
   if [ -f $CSP_FILE ]; then
     . $CSP_FILE
-    echo $DOCKER_HOST
+    echo $region-$name.nicedocker.com
   else
     echo $REPOHOST
   fi
@@ -79,8 +78,17 @@ ln -sf $NICESCALEDIR/bin/nicedocker /usr/local/bin/dockernice
 ln -sf $NICESCALEDIR/bin/nsexec /usr/local/bin/nsexec
 
 repohost=`get_repo`
-for s in $SERVICE_TYPES; do
-    docker pull $repohost:5000/nicescale/$s
+NICEDOCKER_URL=$repohost:5000
+git clone https://github.com/nicescale/docker-test.git $wDIR/docker-test
+. $wDIR/docker-test/get_images.sh
+for STACK in $STACKLIST; do
+  for BRANCH in `get_branch $STACK`; do
+    tags=`get_tags $STACK $BRANCH`
+    for t in `echo $tags|tr ',' ' '`; do
+      docker pull $NICEDOCKER_URL/nicescale/$STACK:$t
+      docker tag $NICEDOCKER_URL/nicescale/$STACK:$t nicescale/$STACK:$t
+    done
+  done
 done
 
 # make sure no remove root forever!
