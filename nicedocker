@@ -71,8 +71,6 @@ get_repo() {
   if [ -f $CSP_FILE ]; then
     . $CSP_FILE
     echo $region-$name.nicedocker.com
-  else
-    echo $REPOHOST
   fi
 }
 
@@ -190,13 +188,14 @@ dprepare() {
   cd $SERVICE_DIR/$sid
   [ -d $SERVICE_DIR/$sid/admin ] || mkdir -p $SERVICE_DIR/$sid/admin
 
+  image=$simage:$stag
+  is_nicescaleimage=false
   if echo $simage|grep -q '^nicescale/'; then
     repohost=`get_repo`
-    image=$repohost:5000/$simage:$stag
-    is_nicescaleimage=true
-  else
-    image=$simage:$stag
-    is_nicescaleimage=false
+    if [ -n $repohost ]; then
+      image=$repohost:5000/$simage:$stag
+      is_nicescaleimage=true
+    fi
   fi
 
   tmp_container="tmp-container"-`date +%s`
@@ -289,13 +288,14 @@ dcreate() {
   [ ! -z "$log" ] && envvar="-e LOG_DIR=$log "$envvar
   [ ! -z "$data" ] && envvar="-e DATA_DIR=$data "$envvar
 
+  image=$simage:$stag
+  is_nicescaleimage=false
   if echo $simage|grep -q '^nicescale/'; then
     repohost=`get_repo`
-    image=$repohost:5000/$simage:$stag
-    is_nicescaleimage=true
-  else
-    image=$simage
-    is_nicescaleimage=false
+    if [ -n $repohost ]; then
+      image=$repohost:5000/$simage:$stag
+      is_nicescaleimage=true
+    fi
   fi
 
   if nicescale_env; then
