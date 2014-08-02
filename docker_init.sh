@@ -52,7 +52,7 @@ if [ "$distribution" = "Ubuntu" ]; then
   esac
  
   #sed -i 's/#DOCKER_OPTS=.*/DOCKER_OPTS="--storage-driver=devicemapper"/' /etc/default/docker
-  service lxc-docker restart
+  service docker restart
   /usr/sbin/usermod -a -G docker ubuntu
 elif [ "$distribution" = "CentOS" ]; then
   version=`head -1 /etc/issue.net |cut -f3 -d' '`
