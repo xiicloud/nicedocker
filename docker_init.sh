@@ -35,7 +35,7 @@ if [ "$distribution" = "Ubuntu" ]; then
   apt-get update
   case $version in
     "14")
-      apt-get -y install linux-image-extra lxc-docker
+      apt-get -y install linux-image-extra-`uname -r` lxc-docker
       ;;
     "12")
       apt-get -y install linux-image-generic-lts-raring linux-headers-generic-lts-raring
