@@ -220,7 +220,9 @@ dprepare() {
 
   if [ -n "$log" ]; then
     if [ "$service_log_dir" = $def_service_log_dir ] || [ -z "$service_log_dir" ]; then
-      docker cp $tmp_container:$log ./ && mv `basename $log` log
+      docker cp $tmp_container:$log ./
+      tlog_name=`basename $log`
+      [ "$tlog_name" != "log" ] && mv $tlog_name log
     else
       log_basename=`basename $service_log_dir`
       [ -d $service_log_dir ] && rmdir $service_log_dir 2>/dev/null
@@ -233,7 +235,9 @@ dprepare() {
 
   if [ -n "$data" ]; then
     if [ "$service_data_dir" = $def_service_data_dir ] || [ -z "$service_data_dir" ]; then
-      docker cp $tmp_container:$data ./ && mv `basename $data` data
+      docker cp $tmp_container:$data ./
+      tdata_name=`basename $data`
+      [ "$tdata_name" != "data" ] && mv $tdata_name data
     else
       data_basename=`basename $service_data_dir`
       [ -d $service_data_dir ] && rmdir $service_data_dir 2>/dev/null
