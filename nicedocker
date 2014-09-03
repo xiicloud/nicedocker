@@ -21,24 +21,20 @@ usage() {
 The nicedocker commands supported now are:
    run      run    docker image, args supported:
             image  docker image you want to run, such as nicescale/memcached
-            tag    docker image tag, general: latest or software version
+            [tag]  docker image tag, general software version, default latest
             [name] service name, will auto generate if empty
             [id]   service uuid, will auto generate if empty
             [options] others options needed, see docker help run
    ps       view all dockers mananged by nicescale
    login    login docker, execute command interactively, args: id
    exec     exec command once in docker non-interactively, args: id cmd
-   start    start stopped docker container, args: id
-   stop     stop running docker container, args: id
-   restart  restart docker, equal stop && start, args: id
+   start    start stopped service, args: id
+   stop     stop running service, args: id
+   restart  restart service, equal stop && start, args: id
+   reload   try restart service gracefully, args: id
+   status   get service running status, args: id
    rm       delete stopped docker container, no purge data, args: id
-   service  operate service, args: id action, supported actions:
-            start   start service by upstart/systemd, autostart after reboot
-            stop    stop service by upstart/systemd, auto stop while halting
-            reload  restart service gracefully if possible
-            restart restart service by upstart/systemd
-            status  view status of service
-            destroy destroy service totally including data
+   destroy  destroy service including data, args: id
 "
 }
 
@@ -199,7 +195,7 @@ dprepare() {
   fi
 
   tmp_container="tmp-container"-`date +%s`
-  docker run --rm --name $tmp_container $image sleep 300 &
+  docker run --rm --name --entrypoint=sleep $tmp_container $image 300 &
 
   count=0
   while [ $count -lt 3000 ]; do
@@ -378,6 +374,21 @@ EOF
   echo "DEPLOY_STATUS=ok" >> $serviceinfo
 }
 
+# args: sid tag opt
+dupdate() {
+  sid=$1
+  stag=$2
+  options=$3
+  [ -z "$stag" ] && stag=latest
+  if [ "x$stag" = "x" -o "x$sid" = "x" ]; then
+    usage
+    exit 1
+  fi
+  sname=`get_name_by_id $sid`
+  simage=`get_type_by_id $sid`
+  docker pull $simage:$tag
+}
+
 drun() {
   simage=$1
   stag=$2
@@ -385,11 +396,12 @@ drun() {
   sid=$4
   options="$5"
 
-  if [ "x$simage" = "x" -o "x$stag" = "x" ]; then
+  if [ "x$simage" = "x" ]; then
     usage
     exit 1
   fi
 
+  [ -z "$stag" ] && stag=latest
   if [ -z "$sname" ]; then
     rand_name=$RANDOM
     if echo $simage|grep -q '/'; then
@@ -398,7 +410,7 @@ drun() {
       sname=$simage-$rand_name
     fi
   fi
-  [ -z "$sid" ] && sid=sid-`date +%s|md5sum|cut -c1-20`
+  [ -z "$sid" ] && sid=`date +%s|md5sum|cut -c1-24`
 
   dprepare $simage $stag $sname $sid
   dcreate $simage $stag $sname $sid "$options"
@@ -480,30 +492,11 @@ dservice() {
 }
 
 dstart() {
-  sid=$1
-  if [ "x$sid" = "x" ]; then
-    usage
-    exit 1
-  fi
-
-  get_id_name $sid
-  [ -e $SERVICE_DIR/$sid ] || die "service $1 not exist"
-
-  docker start $sid
+  dservice $1 start
 }
 
 dstop() {
-  sid=$1
-  if [ "x$sid" = "x" ]; then
-    usage
-    exit 1
-  fi
-
-  get_id_name $sid
-  [ -e $SERVICE_DIR/$sid ] || die "service $1 not exist"
-  is_running $sid || warn "service $sid status is stopped, should not be stopped again."
-  docker ps | grep -wq $sid || exit 0
-  docker stop $sid 
+  dservice $1 stop
 }
 
 dkill() {
@@ -522,10 +515,16 @@ dkill() {
 }
 
 drestart() {
-  sid=$1
-  dstop $sid
-  sleep 0.2
-  dstart $sid
+  dservice $1 restart
+}
+ddestroy() {
+  dservice $1 destroy
+}
+dstatus() {
+  dservice $1 status
+}
+dreload() {
+  dservice $1 reload
 }
 
 is_running() {
@@ -729,6 +728,12 @@ elif [ "x$1" = "xstop" ]; then
   dstop $2
 elif [ "x$1" = "xrestart" ]; then
   drestart $2
+elif [ "x$1" = "xreload" ]; then
+  dreload $2
+elif [ "x$1" = "xstatus" ]; then
+  dstatus $2
+elif [ "x$1" = "xdestroy" ]; then
+  ddestroy $2
 elif [ "x$1" = "xservice" ]; then
   dservice $2 $3
 elif [ "x$1" = "xrm" ]; then
